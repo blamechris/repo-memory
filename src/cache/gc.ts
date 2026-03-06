@@ -47,7 +47,6 @@ export async function runGC(
   result.removedCacheEntries.push(...deletedFilePaths);
 
   // 2. Remove old cache entries (by lastChecked age)
-  const cacheCutoff = Date.now() - cacheMaxAgeDays * MS_PER_DAY;
   const staleEntries = store.getStaleEntries(cacheMaxAgeDays * MS_PER_DAY);
   const stalePaths = staleEntries
     .filter((entry) => !result.removedCacheEntries.includes(entry.path))
