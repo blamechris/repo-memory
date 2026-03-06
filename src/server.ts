@@ -3,6 +3,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { forceReread } from './tools/force-reread.js';
+import { invalidateCache } from './tools/invalidate.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -80,6 +82,46 @@ server.registerTool('get_project_map', {
           message: 'get_project_map is not yet implemented. See issue #21.',
           depth: depth ?? null,
         }),
+      },
+    ],
+  };
+});
+
+server.registerTool('force_reread', {
+  title: 'Force Re-read',
+  description:
+    'Re-reads a file from disk, generates a fresh summary, and updates the cache. Use when you know a file has changed or want guaranteed-fresh data.',
+  inputSchema: {
+    path: z.string().describe('File path relative to project root'),
+  },
+}, async ({ path }) => {
+  const projectRoot = process.cwd();
+  const result = await forceReread(projectRoot, path);
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(result),
+      },
+    ],
+  };
+});
+
+server.registerTool('invalidate', {
+  title: 'Invalidate Cache',
+  description:
+    'Invalidates cached entries. If a path is provided, only that entry is removed. If no path is provided, all entries are removed.',
+  inputSchema: {
+    path: z.string().optional().describe('File path to invalidate, or omit to invalidate all'),
+  },
+}, async ({ path }) => {
+  const projectRoot = process.cwd();
+  const result = await invalidateCache(projectRoot, path);
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(result),
       },
     ],
   };
