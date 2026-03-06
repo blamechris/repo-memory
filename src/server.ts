@@ -4,6 +4,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { getFileSummary } from './tools/get-file-summary.js';
+import { getChangedFiles } from './tools/get-changed-files.js';
+import { getProjectMap } from './tools/get-project-map.js';
+import { forceReread } from './tools/force-reread.js';
+import { invalidateCache } from './tools/invalidate.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -52,21 +56,10 @@ server.registerTool('get_changed_files', {
     since: z.string().optional().describe('ISO timestamp or "last_check"'),
   },
 }, async ({ since }) => {
+  const projectRoot = process.cwd();
+  const result = await getChangedFiles(projectRoot, since);
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({
-          changed: [],
-          added: [],
-          deleted: [],
-          checkedAt: new Date().toISOString(),
-          status: 'not_implemented',
-          message: 'get_changed_files is not yet implemented. See issue #18.',
-          since: since ?? 'last_check',
-        }),
-      },
-    ],
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
 });
 
@@ -75,23 +68,43 @@ server.registerTool('get_project_map', {
   description:
     'Returns a structural overview of the project including directory tree, entry points, and key modules.',
   inputSchema: {
+    project_root: z.string().describe('Absolute path to the project root'),
     depth: z.number().optional().describe('Max directory depth to include'),
   },
-}, async ({ depth }) => {
+}, async ({ project_root, depth }) => {
+  const projectMap = await getProjectMap(project_root, depth);
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({
-          tree: null,
-          entryPoints: [],
-          totalFiles: 0,
-          status: 'not_implemented',
-          message: 'get_project_map is not yet implemented. See issue #21.',
-          depth: depth ?? null,
-        }),
-      },
-    ],
+    content: [{ type: 'text' as const, text: JSON.stringify(projectMap) }],
+  };
+});
+
+server.registerTool('force_reread', {
+  title: 'Force Re-read',
+  description:
+    'Re-reads a file from disk, generates a fresh summary, and updates the cache. Use when you know a file has changed or want guaranteed-fresh data.',
+  inputSchema: {
+    path: z.string().describe('File path relative to project root'),
+  },
+}, async ({ path }) => {
+  const projectRoot = process.cwd();
+  const result = await forceReread(projectRoot, path);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('invalidate', {
+  title: 'Invalidate Cache',
+  description:
+    'Invalidates cached entries. If a path is provided, only that entry is removed. If no path is provided, all entries are removed.',
+  inputSchema: {
+    path: z.string().optional().describe('File path to invalidate, or omit to invalidate all'),
+  },
+}, async ({ path }) => {
+  const projectRoot = process.cwd();
+  const result = await invalidateCache(projectRoot, path);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
 });
 
