@@ -10,6 +10,7 @@ import { forceReread } from './tools/force-reread.js';
 import { invalidateCache } from './tools/invalidate.js';
 import { getDependencyGraphTool } from './tools/get-dependency-graph.js';
 import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-context.js';
+import { getTokenReport } from './tools/get-token-report.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -176,6 +177,32 @@ server.registerTool('mark_explored', {
   const result = markExploredTool(projectRoot, task_id, path, status, notes);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('get_token_report', {
+  title: 'Get Token Report',
+  description:
+    'Get aggregated token usage telemetry report showing cache efficiency and token savings',
+  inputSchema: {
+    period: z
+      .enum(['session', 'all', 'last_n_hours'])
+      .optional()
+      .describe('Time period for the report'),
+    hours: z
+      .number()
+      .optional()
+      .describe('Number of hours to look back (only for last_n_hours period)'),
+    session_id: z
+      .string()
+      .optional()
+      .describe('Session ID (only for session period)'),
+  },
+}, async ({ period, hours, session_id }) => {
+  const projectRoot = process.cwd();
+  const report = getTokenReport(projectRoot, period, hours, session_id);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }],
   };
 });
 
