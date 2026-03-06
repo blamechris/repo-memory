@@ -63,6 +63,19 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
       `);
     },
   },
+  {
+    version: 4,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          started_at INTEGER NOT NULL,
+          ended_at INTEGER,
+          metadata_json TEXT
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations(db: Database.Database): void {
