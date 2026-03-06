@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { readdir, stat } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { promisify } from 'util';
 
