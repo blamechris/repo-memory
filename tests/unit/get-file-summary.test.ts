@@ -79,4 +79,12 @@ describe('getFileSummary', () => {
     await expect(getFileSummary(tempDir, 'nonexistent.ts')).rejects.toThrow();
   });
 
+  it('includes suggestFullRead as false for normal .ts file', async () => {
+    const filePath = 'src/example.ts';
+    const fileContent = 'export function hello(): string {\n  return "hi";\n}\n';
+    await writeFile(join(tempDir, filePath), fileContent, 'utf-8');
+
+    const result = await getFileSummary(tempDir, filePath);
+    expect(result.suggestFullRead).toBe(false);
+  });
 });

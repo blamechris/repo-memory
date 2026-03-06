@@ -13,6 +13,7 @@ export interface FileSummaryResult {
   fromCache: boolean;
   reason: string;
   cacheAge: number | null;
+  suggestFullRead: boolean;
 }
 
 export async function getFileSummary(
@@ -41,6 +42,7 @@ export async function getFileSummary(
       fromCache: true,
       reason: 'cache_hit: hash unchanged',
       cacheAge,
+      suggestFullRead: cached.summary.confidence === 'low',
     };
   }
 
@@ -64,5 +66,6 @@ export async function getFileSummary(
     fromCache: false,
     reason,
     cacheAge,
+    suggestFullRead: summary.confidence === 'low',
   };
 }

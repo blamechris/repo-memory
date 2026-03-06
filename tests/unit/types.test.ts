@@ -21,6 +21,7 @@ describe('types', () => {
       imports: ['./baz'],
       lineCount: 42,
       topLevelDeclarations: ['function foo', 'class Bar'],
+      confidence: 'high',
     };
     expect(summary.purpose).toBe('source');
     expect(summary.exports).toHaveLength(2);

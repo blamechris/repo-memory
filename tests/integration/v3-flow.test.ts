@@ -201,7 +201,7 @@ describe('V3 end-to-end flow', () => {
     const smartResult = smartSummarize(
       'src/utils/validate.ts',
       validateContents,
-      { purpose: 'source', exports: ['validate'], imports: [], lineCount: 4, topLevelDeclarations: ['function validate'] },
+      { purpose: 'source', exports: ['validate'], imports: [], lineCount: 4, topLevelDeclarations: ['function validate'], confidence: 'high' as const },
       projectDir,
     );
     // Non-structural change (only body lines modified) → should produce diff-partial

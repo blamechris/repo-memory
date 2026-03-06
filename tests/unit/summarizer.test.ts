@@ -115,4 +115,32 @@ export async function main() {}
     expect(result.topLevelDeclarations).toEqual([]);
     expect(result.purpose).toBe('source');
   });
+
+  describe('confidence scoring', () => {
+    it('returns high confidence for TypeScript file with exports', () => {
+      const result = summarizeFile(
+        'src/utils.ts',
+        'export function doStuff() {}\n',
+      );
+      expect(result.confidence).toBe('high');
+    });
+
+    it('returns medium confidence for config file (package.json)', () => {
+      const result = summarizeFile(
+        'package.json',
+        '{\n  "name": "test"\n}\n',
+      );
+      expect(result.confidence).toBe('medium');
+    });
+
+    it('returns low confidence for markdown file', () => {
+      const result = summarizeFile('README.md', '# Hello\n');
+      expect(result.confidence).toBe('low');
+    });
+
+    it('returns low confidence for empty file', () => {
+      const result = summarizeFile('src/empty.ts', '');
+      expect(result.confidence).toBe('low');
+    });
+  });
 });

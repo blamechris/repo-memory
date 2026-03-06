@@ -2,6 +2,8 @@ import type { FileSummary } from '../types.js';
 
 const TS_JS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
+const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
+
 const EXPORT_PATTERN =
   /^export\s+(?:default\s+)?(?:const|let|var|function\s*\*?|class|interface|type|enum|abstract\s+class)\s+(\w+)/gm;
 
@@ -114,25 +116,53 @@ function extractTopLevelDeclarations(contents: string): string[] {
   return [...new Set(results)];
 }
 
+const CLEAR_PURPOSES = new Set(['entry point', 'config', 'types', 'test']);
+
+function calculateConfidence(
+  purpose: string,
+  exports: string[],
+  imports: string[],
+  declarations: string[],
+  lineCount: number,
+): 'high' | 'medium' | 'low' {
+  if (lineCount === 0) return 'low';
+  if (exports.length === 0 && imports.length === 0 && declarations.length === 0) return 'low';
+  if (exports.length > 0 || CLEAR_PURPOSES.has(purpose)) return 'high';
+  return 'medium';
+}
+
 export function summarizeFile(filePath: string, contents: string): FileSummary {
   const ext = getExtension(filePath);
   const lineCount = contents === '' ? 0 : contents.split('\n').length;
 
   if (!TS_JS_EXTENSIONS.has(ext) && ext !== '.d.ts') {
+    const confidence: 'high' | 'medium' | 'low' = lineCount === 0
+      ? 'low'
+      : CONFIG_EXTENSIONS.has(ext)
+        ? 'medium'
+        : 'low';
     return {
       purpose: classifyNonCodePurpose(ext),
       exports: [],
       imports: [],
       lineCount,
       topLevelDeclarations: [],
+      confidence,
     };
   }
 
+  const exports = extractExports(contents);
+  const imports = extractImports(contents);
+  const topLevelDeclarations = extractTopLevelDeclarations(contents);
+  const purpose = classifyPurpose(filePath, contents, ext);
+  const confidence = calculateConfidence(purpose, exports, imports, topLevelDeclarations, lineCount);
+
   return {
-    purpose: classifyPurpose(filePath, contents, ext),
-    exports: extractExports(contents),
-    imports: extractImports(contents),
+    purpose,
+    exports,
+    imports,
     lineCount,
-    topLevelDeclarations: extractTopLevelDeclarations(contents),
+    topLevelDeclarations,
+    confidence,
   };
 }
