@@ -68,7 +68,11 @@ export class TaskMemory {
     this.projectRoot = projectRoot;
   }
 
-  createTask(name: string, metadata?: Record<string, unknown>): Task {
+  createTask(
+    name: string,
+    metadata?: Record<string, unknown>,
+    sessionId?: string,
+  ): Task {
     const db = getDatabase(this.projectRoot);
     const id = randomUUID();
     const now = Date.now();
@@ -76,8 +80,8 @@ export class TaskMemory {
 
     db.prepare(
       `INSERT INTO tasks (id, name, state, created_at, updated_at, session_id, metadata_json)
-       VALUES (?, ?, 'created', ?, ?, NULL, ?)`,
-    ).run(id, name, now, now, metadataJson);
+       VALUES (?, ?, 'created', ?, ?, ?, ?)`,
+    ).run(id, name, now, now, sessionId ?? null, metadataJson);
 
     return {
       id,
@@ -85,7 +89,7 @@ export class TaskMemory {
       state: 'created',
       createdAt: now,
       updatedAt: now,
-      sessionId: null,
+      sessionId: sessionId ?? null,
       metadata: metadata ?? null,
     };
   }
