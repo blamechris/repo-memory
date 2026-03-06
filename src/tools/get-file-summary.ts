@@ -4,11 +4,13 @@ import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
 import { summarizeFile } from '../indexer/summarizer.js';
 import type { FileSummary } from '../types.js';
+import { validatePath } from '../utils/validate-path.js';
 
 export async function getFileSummary(
   projectRoot: string,
   relativePath: string,
 ): Promise<{ path: string; hash: string; summary: FileSummary; fromCache: boolean }> {
+  relativePath = validatePath(projectRoot, relativePath);
   const store = new CacheStore(projectRoot);
   const absolutePath = join(projectRoot, relativePath);
 

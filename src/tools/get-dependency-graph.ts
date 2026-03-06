@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DependencyGraph } from '../graph/dependency-graph.js';
 import { scanProject } from '../indexer/scanner.js';
+import { validatePath } from '../utils/validate-path.js';
 
 export interface DependencyGraphResult {
   nodes: string[];
@@ -19,6 +20,9 @@ export async function getDependencyGraphTool(
   direction?: 'dependencies' | 'dependents' | 'both',
   depth?: number,
 ): Promise<DependencyGraphResult> {
+  if (path) {
+    path = validatePath(projectRoot, path);
+  }
   const graph = new DependencyGraph(projectRoot);
 
   // Index all files to build the graph

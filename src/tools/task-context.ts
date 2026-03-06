@@ -1,4 +1,5 @@
 import { TaskMemory, type Task, type TaskFile } from '../memory/task.js';
+import { validatePath } from '../utils/validate-path.js';
 
 export interface TaskContextResult {
   task: Task;
@@ -50,6 +51,7 @@ export function markExploredTool(
   status?: 'explored' | 'skipped' | 'flagged',
   notes?: string,
 ): { marked: true; taskId: string; path: string; status: string } {
+  path = validatePath(projectRoot, path);
   const memory = new TaskMemory(projectRoot);
   memory.markExplored(taskId, path, status, notes);
   return { marked: true, taskId, path, status: status ?? 'explored' };
