@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage",
+    "start": "node dist/server.js",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true"
   },
@@ -37,5 +38,9 @@
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^4.3.6"
   }
 }
