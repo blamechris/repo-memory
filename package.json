@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts' 'tests/**/*.ts'",
+    "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true"
   },
   "keywords": [
     "mcp",
@@ -28,6 +30,11 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   }
