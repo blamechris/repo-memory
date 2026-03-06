@@ -31,6 +31,7 @@ describe('forceReread', () => {
     expect(result.hash.length).toBe(64);
     expect(result.summary).toBeDefined();
     expect(result.summary.exports).toContain('hello');
+    expect(result.reason).toBe('force_reread: explicitly requested');
   });
 
   it('should update the cache entry', async () => {
