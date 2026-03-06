@@ -48,6 +48,21 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
       `);
     },
   },
+  {
+    version: 3,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS imports (
+          source TEXT NOT NULL,
+          target TEXT NOT NULL,
+          specifiers TEXT NOT NULL,
+          import_type TEXT NOT NULL,
+          PRIMARY KEY (source, target, import_type)
+        );
+        CREATE INDEX IF NOT EXISTS idx_imports_target ON imports (target);
+      `);
+    },
+  },
 ];
 
 function runMigrations(db: Database.Database): void {
