@@ -11,6 +11,7 @@ export interface FileSummary {
   imports: string[];
   lineCount: number;
   topLevelDeclarations: string[];
+  confidence: 'high' | 'medium' | 'low';
 }
 
 export interface ImportRef {

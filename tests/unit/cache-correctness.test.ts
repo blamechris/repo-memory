@@ -263,6 +263,7 @@ describe('Cache correctness regression tests', () => {
           imports: [],
           lineCount: 1,
           topLevelDeclarations: [`const n`],
+          confidence: 'high',
         });
       });
     });

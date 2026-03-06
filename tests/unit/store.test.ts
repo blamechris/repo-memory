@@ -16,6 +16,7 @@ describe('CacheStore', () => {
     imports: ['fs', 'path'],
     lineCount: 42,
     topLevelDeclarations: ['function foo', 'const bar'],
+    confidence: 'high',
   };
 
   beforeEach(() => {
