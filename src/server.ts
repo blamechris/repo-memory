@@ -3,6 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { getFileSummary } from './tools/get-file-summary.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -17,21 +18,30 @@ server.registerTool('get_file_summary', {
     path: z.string().describe('File path relative to project root'),
   },
 }, async ({ path }) => {
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({
-          path,
-          hash: null,
-          summary: null,
-          fromCache: false,
-          status: 'not_implemented',
-          message: 'get_file_summary is not yet implemented. See issue #16.',
-        }),
-      },
-    ],
-  };
+  try {
+    const projectRoot = process.cwd();
+    const result = await getFileSummary(projectRoot, path);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isNotFound =
+      error instanceof Error && 'code' in error && error.code === 'ENOENT';
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: isNotFound ? 'file_not_found' : 'internal_error',
+            message,
+            path,
+          }),
+        },
+      ],
+      isError: true,
+    };
+  }
 });
 
 server.registerTool('get_changed_files', {
