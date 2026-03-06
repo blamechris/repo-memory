@@ -22,6 +22,32 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
       `);
     },
   },
+  {
+    version: 2,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          state TEXT NOT NULL DEFAULT 'created',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          session_id TEXT,
+          metadata_json TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS task_files (
+          task_id TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'explored',
+          notes TEXT,
+          explored_at INTEGER NOT NULL,
+          PRIMARY KEY (task_id, file_path),
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations(db: Database.Database): void {
