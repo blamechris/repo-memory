@@ -6,10 +6,19 @@ import { summarizeFile } from '../indexer/summarizer.js';
 import type { FileSummary } from '../types.js';
 import { validatePath } from '../utils/validate-path.js';
 
+export interface FileSummaryResult {
+  path: string;
+  hash: string;
+  summary: FileSummary;
+  fromCache: boolean;
+  reason: string;
+  cacheAge: number | null;
+}
+
 export async function getFileSummary(
   projectRoot: string,
   relativePath: string,
-): Promise<{ path: string; hash: string; summary: FileSummary; fromCache: boolean }> {
+): Promise<FileSummaryResult> {
   relativePath = validatePath(projectRoot, relativePath);
   const store = new CacheStore(projectRoot);
   const absolutePath = join(projectRoot, relativePath);
@@ -20,13 +29,41 @@ export async function getFileSummary(
 
   // Check cache
   const cached = store.getEntry(relativePath);
+  const cacheAge = cached
+    ? Math.floor((Date.now() - cached.lastChecked) / 1000)
+    : null;
+
   if (cached && cached.hash === currentHash && cached.summary) {
-    return { path: relativePath, hash: currentHash, summary: cached.summary, fromCache: true };
+    return {
+      path: relativePath,
+      hash: currentHash,
+      summary: cached.summary,
+      fromCache: true,
+      reason: 'cache_hit: hash unchanged',
+      cacheAge,
+    };
   }
 
   // Generate fresh summary
   const summary = summarizeFile(relativePath, contents);
   store.setEntry(relativePath, currentHash, summary);
 
-  return { path: relativePath, hash: currentHash, summary, fromCache: false };
+  let reason: string;
+  if (!cached) {
+    reason = 'cache_miss: no prior entry';
+  } else if (cached.hash !== currentHash) {
+    reason = 'cache_miss: hash changed';
+  } else {
+    reason = 'cache_miss: no summary in cache';
+  }
+
+  return {
+    path: relativePath,
+    hash: currentHash,
+    summary,
+    fromCache: false,
+    reason,
+    cacheAge,
+    suggestFullRead: summary.confidence === 'low',
+  };
 }

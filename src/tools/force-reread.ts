@@ -9,7 +9,7 @@ import { validatePath } from '../utils/validate-path.js';
 export async function forceReread(
   projectRoot: string,
   relativePath: string,
-): Promise<{ path: string; hash: string; summary: FileSummary; reread: true }> {
+): Promise<{ path: string; hash: string; summary: FileSummary; reread: true; reason: string }> {
   relativePath = validatePath(projectRoot, relativePath);
   const absolutePath = join(projectRoot, relativePath);
   const contents = await readFile(absolutePath, 'utf-8');
@@ -19,5 +19,5 @@ export async function forceReread(
   const store = new CacheStore(projectRoot);
   store.setEntry(relativePath, hash, summary);
 
-  return { path: relativePath, hash, summary, reread: true };
+  return { path: relativePath, hash, summary, reread: true, reason: 'force_reread: explicitly requested' };
 }
