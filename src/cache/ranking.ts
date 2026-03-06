@@ -1,4 +1,4 @@
-import { dirname, relative } from 'path';
+import { dirname } from 'path';
 import type { DependencyGraph } from '../graph/dependency-graph.js';
 import type { CacheStore } from './store.js';
 

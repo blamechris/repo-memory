@@ -1,5 +1,5 @@
 import {
-  mkdtempSync, mkdirSync, rmSync, writeFileSync, unlinkSync, renameSync,
+  mkdtempSync, mkdirSync, rmSync, writeFileSync, renameSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
