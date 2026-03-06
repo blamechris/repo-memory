@@ -78,4 +78,5 @@ describe('getFileSummary', () => {
   it('throws when the file does not exist', async () => {
     await expect(getFileSummary(tempDir, 'nonexistent.ts')).rejects.toThrow();
   });
+
 });

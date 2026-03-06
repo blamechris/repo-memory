@@ -64,6 +64,5 @@ export async function getFileSummary(
     fromCache: false,
     reason,
     cacheAge,
-    suggestFullRead: summary.confidence === 'low',
   };
 }
