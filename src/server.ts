@@ -8,6 +8,8 @@ import { getChangedFiles } from './tools/get-changed-files.js';
 import { getProjectMap } from './tools/get-project-map.js';
 import { forceReread } from './tools/force-reread.js';
 import { invalidateCache } from './tools/invalidate.js';
+import { getDependencyGraphTool } from './tools/get-dependency-graph.js';
+import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-context.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -103,6 +105,75 @@ server.registerTool('invalidate', {
 }, async ({ path }) => {
   const projectRoot = process.cwd();
   const result = await invalidateCache(projectRoot, path);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('get_dependency_graph', {
+  title: 'Get Dependency Graph',
+  description:
+    'Returns dependency graph information. If a path is given, returns its dependencies/dependents. If no path, returns a summary of the most connected files.',
+  inputSchema: {
+    path: z.string().optional().describe('File path to query, or omit for full graph summary'),
+    direction: z
+      .enum(['dependencies', 'dependents', 'both'])
+      .optional()
+      .describe('Query direction (default: both)'),
+    depth: z.number().optional().describe('Max traversal depth'),
+  },
+}, async ({ path, direction, depth }) => {
+  const projectRoot = process.cwd();
+  const result = await getDependencyGraphTool(projectRoot, path, direction, depth);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('create_task', {
+  title: 'Create Task',
+  description: 'Creates a new investigation task for tracking file exploration.',
+  inputSchema: {
+    name: z.string().describe('Human-readable task name'),
+  },
+}, async ({ name }) => {
+  const projectRoot = process.cwd();
+  const task = createTaskTool(projectRoot, name);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(task) }],
+  };
+});
+
+server.registerTool('get_task_context', {
+  title: 'Get Task Context',
+  description:
+    'Returns task state, explored files, and frontier. If no task_id, returns list of all tasks.',
+  inputSchema: {
+    task_id: z.string().optional().describe('Task ID to query, or omit to list all tasks'),
+  },
+}, async ({ task_id }) => {
+  const projectRoot = process.cwd();
+  const result = getTaskContext(projectRoot, task_id);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('mark_explored', {
+  title: 'Mark Explored',
+  description: 'Marks a file as explored for a task, with optional status and notes.',
+  inputSchema: {
+    task_id: z.string().describe('Task ID'),
+    path: z.string().describe('File path relative to project root'),
+    status: z
+      .enum(['explored', 'skipped', 'flagged'])
+      .optional()
+      .describe('Exploration status (default: explored)'),
+    notes: z.string().optional().describe('Optional notes about the file'),
+  },
+}, async ({ task_id, path, status, notes }) => {
+  const projectRoot = process.cwd();
+  const result = markExploredTool(projectRoot, task_id, path, status, notes);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
