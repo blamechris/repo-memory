@@ -3,6 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { getChangedFiles } from './tools/get-changed-files.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -42,19 +43,12 @@ server.registerTool('get_changed_files', {
     since: z.string().optional().describe('ISO timestamp or "last_check"'),
   },
 }, async ({ since }) => {
+  const result = await getChangedFiles(process.cwd(), since);
   return {
     content: [
       {
         type: 'text' as const,
-        text: JSON.stringify({
-          changed: [],
-          added: [],
-          deleted: [],
-          checkedAt: new Date().toISOString(),
-          status: 'not_implemented',
-          message: 'get_changed_files is not yet implemented. See issue #18.',
-          since: since ?? 'last_check',
-        }),
+        text: JSON.stringify(result),
       },
     ],
   };
