@@ -3,6 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { getProjectMap } from './tools/get-project-map.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -65,21 +66,16 @@ server.registerTool('get_project_map', {
   description:
     'Returns a structural overview of the project including directory tree, entry points, and key modules.',
   inputSchema: {
+    project_root: z.string().describe('Absolute path to the project root'),
     depth: z.number().optional().describe('Max directory depth to include'),
   },
-}, async ({ depth }) => {
+}, async ({ project_root, depth }) => {
+  const projectMap = await getProjectMap(project_root, depth);
   return {
     content: [
       {
         type: 'text' as const,
-        text: JSON.stringify({
-          tree: null,
-          entryPoints: [],
-          totalFiles: 0,
-          status: 'not_implemented',
-          message: 'get_project_map is not yet implemented. See issue #21.',
-          depth: depth ?? null,
-        }),
+        text: JSON.stringify(projectMap),
       },
     ],
   };
