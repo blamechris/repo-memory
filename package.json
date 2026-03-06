@@ -1,0 +1,30 @@
+{
+  "name": "repo-memory",
+  "version": "0.1.0",
+  "description": "Persistent structured memory for codebases — MCP server for Claude Code and agentic workflows",
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "bin": {
+    "repo-memory": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "agent",
+    "memory",
+    "codebase"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  }
+}
