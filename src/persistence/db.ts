@@ -63,6 +63,23 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
       `);
     },
   },
+  {
+    version: 4,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telemetry (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          timestamp INTEGER NOT NULL,
+          event_type TEXT NOT NULL,
+          file_path TEXT,
+          tokens_estimated INTEGER,
+          metadata_json TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_telemetry_type ON telemetry (event_type);
+        CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry (timestamp);
+      `);
+    },
+  },
 ];
 
 function runMigrations(db: Database.Database): void {
