@@ -1,9 +1,13 @@
 import { CacheStore } from '../cache/store.js';
+import { validatePath } from '../utils/validate-path.js';
 
 export async function invalidateCache(
   projectRoot: string,
   path?: string,
 ): Promise<{ invalidated: string | 'all'; entriesRemoved: number }> {
+  if (path) {
+    path = validatePath(projectRoot, path);
+  }
   const store = new CacheStore(projectRoot);
 
   if (path) {

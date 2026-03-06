@@ -4,11 +4,13 @@ import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
 import { summarizeFile } from '../indexer/summarizer.js';
 import type { FileSummary } from '../types.js';
+import { validatePath } from '../utils/validate-path.js';
 
 export async function forceReread(
   projectRoot: string,
   relativePath: string,
 ): Promise<{ path: string; hash: string; summary: FileSummary; reread: true }> {
+  relativePath = validatePath(projectRoot, relativePath);
   const absolutePath = join(projectRoot, relativePath);
   const contents = await readFile(absolutePath, 'utf-8');
   const hash = hashContents(contents);
