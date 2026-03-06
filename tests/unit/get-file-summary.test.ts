@@ -30,6 +30,8 @@ describe('getFileSummary', () => {
     expect(result.summary.purpose).toBe('source');
     expect(result.summary.exports).toContain('hello');
     expect(result.summary.lineCount).toBe(4);
+    expect(result.reason).toBe('cache_miss: no prior entry');
+    expect(result.cacheAge).toBeNull();
   });
 
   it('returns cached summary on second call', async () => {
@@ -44,6 +46,9 @@ describe('getFileSummary', () => {
     expect(second.fromCache).toBe(true);
     expect(second.hash).toBe(first.hash);
     expect(second.summary).toEqual(first.summary);
+    expect(second.reason).toBe('cache_hit: hash unchanged');
+    expect(second.cacheAge).toBeTypeOf('number');
+    expect(second.cacheAge).toBeGreaterThanOrEqual(0);
   });
 
   it('generates a fresh summary when file content changes', async () => {
@@ -65,6 +70,9 @@ describe('getFileSummary', () => {
     expect(second.summary.exports).toContain('b');
     expect(second.summary.exports).toContain('c');
     expect(second.summary.exports).not.toContain('a');
+    expect(second.reason).toBe('cache_miss: hash changed');
+    expect(second.cacheAge).toBeTypeOf('number');
+    expect(second.cacheAge).toBeGreaterThanOrEqual(0);
   });
 
   it('throws when the file does not exist', async () => {
