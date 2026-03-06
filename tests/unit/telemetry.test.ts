@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { closeDatabase } from '../../src/persistence/db.js';
+import { closeDatabase, getDatabase } from '../../src/persistence/db.js';
 import { TelemetryTracker } from '../../src/telemetry/tracker.js';
 
 describe('TelemetryTracker', () => {
@@ -90,5 +90,130 @@ describe('TelemetryTracker', () => {
 
     const pastEvents = tracker.getEvents({ since: 0 });
     expect(pastEvents).toHaveLength(1);
+  });
+
+  describe('sampling', () => {
+    it('records no events with sampling rate 0.0', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, 0.0);
+      for (let i = 0; i < 20; i++) {
+        sampledTracker.trackEvent('cache_hit', `file${i}.ts`, 100);
+      }
+      const events = sampledTracker.getEvents();
+      expect(events).toHaveLength(0);
+    });
+
+    it('records all events with sampling rate 1.0', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, 1.0);
+      for (let i = 0; i < 20; i++) {
+        sampledTracker.trackEvent('cache_hit', `file${i}.ts`, 100);
+      }
+      const events = sampledTracker.getEvents();
+      expect(events).toHaveLength(20);
+    });
+
+    it('records approximately half the events with sampling rate 0.5', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, 0.5);
+      for (let i = 0; i < 100; i++) {
+        sampledTracker.trackEvent('cache_hit', `file${i}.ts`, 100);
+      }
+      const events = sampledTracker.getEvents();
+      expect(events.length).toBeGreaterThanOrEqual(20);
+      expect(events.length).toBeLessThanOrEqual(80);
+    });
+  });
+
+  describe('sampling rate getter/setter', () => {
+    it('returns the configured sampling rate', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, 0.7);
+      expect(sampledTracker.getSamplingRate()).toBe(0.7);
+    });
+
+    it('clamps rate below 0.0 to 0.0', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, -0.5);
+      expect(sampledTracker.getSamplingRate()).toBe(0.0);
+
+      tracker.setSamplingRate(-1.0);
+      expect(tracker.getSamplingRate()).toBe(0.0);
+    });
+
+    it('clamps rate above 1.0 to 1.0', () => {
+      const sampledTracker = new TelemetryTracker(tempDir, true, 2.0);
+      expect(sampledTracker.getSamplingRate()).toBe(1.0);
+
+      tracker.setSamplingRate(5.0);
+      expect(tracker.getSamplingRate()).toBe(1.0);
+    });
+  });
+
+  describe('JSONL export', () => {
+    it('exports events as newline-delimited JSON', () => {
+      tracker.trackEvent('cache_hit', 'a.ts', 100);
+      tracker.trackEvent('cache_miss', 'b.ts', 200);
+      tracker.trackEvent('invalidation', 'c.ts');
+
+      const output = tracker.exportEvents();
+      const lines = output.split('\n');
+      expect(lines).toHaveLength(3);
+
+      for (const line of lines) {
+        const parsed = JSON.parse(line);
+        expect(parsed).toHaveProperty('timestamp');
+        expect(parsed).toHaveProperty('eventType');
+        expect(parsed).toHaveProperty('filePath');
+        expect(parsed).toHaveProperty('tokensEstimated');
+        expect(parsed).toHaveProperty('metadata');
+      }
+
+      expect(JSON.parse(lines[0]).eventType).toBe('cache_hit');
+      expect(JSON.parse(lines[1]).eventType).toBe('cache_miss');
+      expect(JSON.parse(lines[2]).eventType).toBe('invalidation');
+    });
+
+    it('exports filtered events by type', () => {
+      tracker.trackEvent('cache_hit', 'a.ts', 100);
+      tracker.trackEvent('cache_miss', 'b.ts', 200);
+      tracker.trackEvent('cache_hit', 'c.ts', 300);
+
+      const output = tracker.exportEvents({ eventType: 'cache_hit' });
+      const lines = output.split('\n');
+      expect(lines).toHaveLength(2);
+
+      for (const line of lines) {
+        expect(JSON.parse(line).eventType).toBe('cache_hit');
+      }
+    });
+
+    it('returns empty string when no events match', () => {
+      const output = tracker.exportEvents();
+      expect(output).toBe('');
+    });
+  });
+
+  describe('retention enforcement', () => {
+    it('deletes old events and keeps recent ones', () => {
+      const db = getDatabase(tempDir);
+
+      // Insert an old event (90 days ago)
+      const oldTimestamp = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      db.prepare(
+        'INSERT INTO telemetry (timestamp, event_type, file_path, tokens_estimated, metadata_json) VALUES (?, ?, ?, ?, ?)',
+      ).run(oldTimestamp, 'cache_hit', 'old.ts', 100, null);
+
+      // Insert a recent event
+      tracker.trackEvent('cache_hit', 'recent.ts', 200);
+
+      const deleted = tracker.enforceRetention(30);
+      expect(deleted).toBe(1);
+
+      const events = tracker.getEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0].filePath).toBe('recent.ts');
+    });
+
+    it('returns 0 when no events are old enough', () => {
+      tracker.trackEvent('cache_hit', 'a.ts', 100);
+      const deleted = tracker.enforceRetention(30);
+      expect(deleted).toBe(0);
+    });
   });
 });

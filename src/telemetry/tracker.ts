@@ -28,10 +28,12 @@ interface TelemetryRow {
 export class TelemetryTracker {
   private readonly projectRoot: string;
   private enabled: boolean;
+  private samplingRate: number;
 
-  constructor(projectRoot: string, enabled: boolean = true) {
+  constructor(projectRoot: string, enabled: boolean = true, samplingRate: number = 1.0) {
     this.projectRoot = projectRoot;
     this.enabled = enabled;
+    this.samplingRate = Math.max(0.0, Math.min(1.0, samplingRate));
   }
 
   trackEvent(
@@ -41,6 +43,7 @@ export class TelemetryTracker {
     metadata?: Record<string, unknown>,
   ): void {
     if (!this.enabled) return;
+    if (this.samplingRate < 1.0 && Math.random() > this.samplingRate) return;
 
     const db = getDatabase(this.projectRoot);
     db.prepare(
@@ -141,6 +144,56 @@ export class TelemetryTracker {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+  }
+
+  getSamplingRate(): number {
+    return this.samplingRate;
+  }
+
+  setSamplingRate(rate: number): void {
+    this.samplingRate = Math.max(0.0, Math.min(1.0, rate));
+  }
+
+  exportEvents(filter?: { since?: number; eventType?: TelemetryEvent }): string {
+    const db = getDatabase(this.projectRoot);
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (filter?.eventType) {
+      conditions.push('event_type = ?');
+      params.push(filter.eventType);
+    }
+    if (filter?.since) {
+      conditions.push('timestamp >= ?');
+      params.push(filter.since);
+    }
+
+    let sql = 'SELECT * FROM telemetry';
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    sql += ' ORDER BY timestamp ASC';
+
+    const rows = db.prepare(sql).all(...params) as TelemetryRow[];
+    return rows
+      .map((row) => {
+        const entry = this.rowToEntry(row);
+        return JSON.stringify({
+          timestamp: entry.timestamp,
+          eventType: entry.eventType,
+          filePath: entry.filePath,
+          tokensEstimated: entry.tokensEstimated,
+          metadata: entry.metadata,
+        });
+      })
+      .join('\n');
+  }
+
+  enforceRetention(maxAgeDays: number): number {
+    const db = getDatabase(this.projectRoot);
+    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+    const result = db.prepare('DELETE FROM telemetry WHERE timestamp < ?').run(cutoff);
+    return result.changes;
   }
 
   private rowToEntry(row: TelemetryRow): TelemetryEntry {
