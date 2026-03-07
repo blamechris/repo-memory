@@ -23,7 +23,7 @@
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "benchmark": "tsx tests/benchmarks/run-benchmarks.ts"
+    "benchmark": "npx tsx tests/benchmarks/run-benchmarks.ts"
   },
   "keywords": [
     "mcp",
