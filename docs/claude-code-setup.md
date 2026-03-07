@@ -11,7 +11,7 @@ Claude Code can run repo-memory directly via npx. No global install required.
 
 ### Option 2: Global install
 ```bash
-npm install -g repo-memory
+npm install -g @blamechris/repo-memory
 ```
 
 ## Configuration
@@ -26,7 +26,7 @@ Create or edit `.claude/settings.json` in your project root:
   "mcpServers": {
     "repo-memory": {
       "command": "npx",
-      "args": ["-y", "repo-memory"]
+      "args": ["-y", "@blamechris/repo-memory"]
     }
   }
 }
@@ -40,7 +40,7 @@ Edit `~/.claude/settings.json`:
   "mcpServers": {
     "repo-memory": {
       "command": "npx",
-      "args": ["-y", "repo-memory"]
+      "args": ["-y", "@blamechris/repo-memory"]
     }
   }
 }
@@ -97,7 +97,7 @@ repo-memory stores its cache in `.repo-memory/cache.db` in your project root. Th
 ### Tools not appearing
 - Restart Claude Code after changing settings
 - Check that Node.js 20+ is installed: `node --version`
-- Try running manually: `npx repo-memory` (should start and wait for input)
+- Try running manually: `npx @blamechris/repo-memory` (should start and wait for input)
 
 ### Permission errors
 - Ensure the project directory is writable (for .repo-memory/ database)
