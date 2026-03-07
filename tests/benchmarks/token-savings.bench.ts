@@ -124,3 +124,57 @@ describe('token savings — medium project (50 files)', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Large project benchmarks (100 files)
+// ---------------------------------------------------------------------------
+
+describe('token savings — large project (100 files)', () => {
+  beforeAll(() => {
+    fixtures['large'] = createBenchmarkFixture(100);
+  });
+
+  afterAll(() => {
+    closeDatabase();
+    if (fixtures['large']) {
+      rmSync(fixtures['large'], { recursive: true, force: true });
+    }
+  });
+
+  bench('explore project', async () => {
+    const dir = fixtures['large'];
+    await invalidateCache(dir);
+    const files = await scanProject(dir);
+    await buildProjectMap(dir);
+    for (const f of files) {
+      await getFileSummary(dir, f);
+    }
+  });
+
+  bench('investigate bug', async () => {
+    const dir = fixtures['large'];
+    await invalidateCache(dir);
+    const files = await scanProject(dir);
+    const task = createTaskTool(dir, 'bench-bug');
+    const count = Math.ceil(files.length * 0.6);
+    for (let i = 0; i < count; i++) {
+      await getFileSummary(dir, files[i]);
+      markExploredTool(dir, task.id, files[i]);
+    }
+    for (let i = 0; i < Math.min(5, count); i++) {
+      await getFileSummary(dir, files[i]);
+    }
+  });
+
+  bench('incremental change', async () => {
+    const dir = fixtures['large'];
+    await invalidateCache(dir);
+    const files = await scanProject(dir);
+    for (const f of files) {
+      await getFileSummary(dir, f);
+    }
+    for (const f of files) {
+      await getFileSummary(dir, f);
+    }
+  });
+});

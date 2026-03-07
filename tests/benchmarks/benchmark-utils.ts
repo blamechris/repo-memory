@@ -13,6 +13,7 @@ export interface BenchmarkReport {
   cacheMisses: number;
   hitRatio: number;
   estimatedTokensSaved: number;
+  durationMs?: number;       // wall-clock time in ms
 }
 
 /**
@@ -204,19 +205,25 @@ export function generateReport(reports: BenchmarkReport[]): string {
   lines.push('');
   lines.push(
     '| Scenario | Files | Raw Bytes | Summary Bytes | Compression | ' +
-      'Cache Hits | Hit Ratio | Est. Tokens Saved |',
+      'Cache Hits | Hit Ratio | Est. Tokens Saved | Duration | ms/file |',
   );
   lines.push(
     '|----------|-------|-----------|---------------|-------------|' +
-      '-----------|-----------|-------------------|',
+      '-----------|-----------|-------------------|----------|---------|',
   );
 
   for (const r of reports) {
+    const durationStr = r.durationMs != null ? `${r.durationMs} ms` : '-';
+    const msPerFile =
+      r.durationMs != null && r.fileCount > 0
+        ? `${(r.durationMs / r.fileCount).toFixed(1)}`
+        : '-';
     lines.push(
       `| ${r.scenario} | ${r.fileCount} | ${formatBytes(r.rawBytes)} | ` +
         `${formatBytes(r.summaryBytes)} | ${r.compressionRatio.toFixed(1)}x | ` +
         `${r.cacheHits}/${r.cacheHits + r.cacheMisses} | ` +
-        `${(r.hitRatio * 100).toFixed(0)}% | ${r.estimatedTokensSaved.toLocaleString()} |`,
+        `${(r.hitRatio * 100).toFixed(0)}% | ${r.estimatedTokensSaved.toLocaleString()} | ` +
+        `${durationStr} | ${msPerFile} |`,
     );
   }
 
