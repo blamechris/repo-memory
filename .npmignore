@@ -1,0 +1,13 @@
+tests/
+docs/planning/
+.claude/
+.github/
+.repo-memory/
+*.test.ts
+*.bench.ts
+vitest.config.ts
+vitest.integration.config.ts
+eslint.config.mjs
+.prettierrc
+tsconfig.json
+src/

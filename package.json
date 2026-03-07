@@ -1,13 +1,18 @@
 {
   "name": "repo-memory",
   "version": "0.1.0",
-  "description": "Persistent structured memory for codebases — MCP server for Claude Code and agentic workflows",
+  "description": "MCP server that gives AI coding agents persistent memory about your codebase",
   "type": "module",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
   "bin": {
     "repo-memory": "dist/server.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
@@ -16,18 +21,27 @@
     "test:coverage": "vitest run --coverage",
     "start": "node dist/server.js",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts' 'tests/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true"
+    "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "benchmark": "tsx tests/benchmarks/run-benchmarks.ts"
   },
   "keywords": [
     "mcp",
-    "claude",
+    "ai",
     "agent",
     "memory",
-    "codebase"
+    "codebase",
+    "cache",
+    "llm"
   ],
+  "author": "blamechris",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blamechris/repo-memory.git"
+  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
