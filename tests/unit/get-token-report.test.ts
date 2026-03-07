@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { closeDatabase, getDatabase } from '../../src/persistence/db.js';
 import { TelemetryTracker } from '../../src/telemetry/tracker.js';
 import { SessionManager } from '../../src/memory/session.js';
+import { CacheStore } from '../../src/cache/store.js';
 import { getTokenReport } from '../../src/tools/get-token-report.js';
 
 describe('getTokenReport', () => {
@@ -154,5 +155,58 @@ describe('getTokenReport', () => {
   it('defaults to "all" period when none specified', () => {
     const report = getTokenReport(tempDir);
     expect(report.period).toBe('all');
+  });
+
+  it('does not include diagnostics by default', () => {
+    const report = getTokenReport(tempDir);
+    expect(report.diagnostics).toBeUndefined();
+  });
+
+  it('does not include diagnostics when include_diagnostics is false', () => {
+    const report = getTokenReport(tempDir, undefined, undefined, undefined, false);
+    expect(report.diagnostics).toBeUndefined();
+  });
+
+  it('includes diagnostics when include_diagnostics is true', () => {
+    const store = new CacheStore(tempDir);
+    store.setEntry('a.ts', 'hash1', null);
+    store.setEntry('b.ts', 'hash2', null);
+
+    const report = getTokenReport(tempDir, undefined, undefined, undefined, true);
+    expect(report.diagnostics).toBeDefined();
+    expect(report.diagnostics!.cacheEntryCount).toBe(2);
+    expect(report.diagnostics!.staleEntryCount).toBe(0);
+    expect(typeof report.diagnostics!.dbFileSizeBytes).toBe('number');
+    expect(report.diagnostics!.dbFileSizeBytes).toBeGreaterThan(0);
+    expect(report.diagnostics!.cacheAgeDistribution).toEqual({
+      '< 1 day': 2,
+      '1-7 days': 0,
+      '7-30 days': 0,
+      '> 30 days': 0,
+    });
+  });
+
+  it('diagnostics correctly counts stale entries', () => {
+    const db = getDatabase(tempDir);
+    const now = Date.now();
+    const thirtyOneDaysAgo = now - 31 * 24 * 60 * 60 * 1000;
+    const twoDaysAgo = now - 2 * 24 * 60 * 60 * 1000;
+
+    db.prepare(
+      'INSERT INTO files (path, hash, last_checked, summary_json) VALUES (?, ?, ?, ?)',
+    ).run('old.ts', 'hash1', thirtyOneDaysAgo, null);
+    db.prepare(
+      'INSERT INTO files (path, hash, last_checked, summary_json) VALUES (?, ?, ?, ?)',
+    ).run('recent.ts', 'hash2', twoDaysAgo, null);
+    db.prepare(
+      'INSERT INTO files (path, hash, last_checked, summary_json) VALUES (?, ?, ?, ?)',
+    ).run('fresh.ts', 'hash3', now, null);
+
+    const report = getTokenReport(tempDir, undefined, undefined, undefined, true);
+    expect(report.diagnostics!.cacheEntryCount).toBe(3);
+    expect(report.diagnostics!.staleEntryCount).toBe(1);
+    expect(report.diagnostics!.cacheAgeDistribution['< 1 day']).toBe(1);
+    expect(report.diagnostics!.cacheAgeDistribution['1-7 days']).toBe(1);
+    expect(report.diagnostics!.cacheAgeDistribution['> 30 days']).toBe(1);
   });
 });
