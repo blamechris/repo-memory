@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join, dirname, basename, extname } from 'node:path';
 import { scanProject } from './scanner.js';
 import { summarizeFile } from './summarizer.js';
@@ -9,7 +9,13 @@ import type { FileSummary } from '../types.js';
 export interface DirectoryNode {
   name: string;
   path: string;
-  files: Array<{ name: string; purpose: string }>;
+  files: Array<{
+    name: string;
+    purpose: string;
+    confidence: string;
+    size: number;
+    lastModified: number;
+  }>;
   children: DirectoryNode[];
   fileCount: number;
 }
@@ -24,6 +30,8 @@ export interface ProjectMap {
 interface FileSummaryEntry {
   relativePath: string;
   summary: FileSummary;
+  size: number;
+  lastModified: number;
 }
 
 async function getSummaries(
@@ -34,13 +42,18 @@ async function getSummaries(
   const entries: FileSummaryEntry[] = [];
 
   for (const relativePath of files) {
+    const absolutePath = join(projectRoot, relativePath);
     const cached = cache.getEntry(relativePath);
     if (cached?.summary) {
-      entries.push({ relativePath, summary: cached.summary });
+      try {
+        const stats = await stat(absolutePath);
+        entries.push({ relativePath, summary: cached.summary, size: stats.size, lastModified: stats.mtimeMs });
+      } catch {
+        entries.push({ relativePath, summary: cached.summary, size: 0, lastModified: 0 });
+      }
       continue;
     }
 
-    const absolutePath = join(projectRoot, relativePath);
     let contents: string;
     try {
       contents = await readFile(absolutePath, 'utf-8');
@@ -51,7 +64,8 @@ async function getSummaries(
     const summary = summarizeFile(relativePath, contents);
     const hash = hashContents(contents);
     cache.setEntry(relativePath, hash, summary);
-    entries.push({ relativePath, summary });
+    const stats = await stat(absolutePath);
+    entries.push({ relativePath, summary, size: stats.size, lastModified: stats.mtimeMs });
   }
 
   return entries;
@@ -107,6 +121,9 @@ function buildTree(
     dir.files.push({
       name: basename(entry.relativePath),
       purpose: entry.summary.purpose,
+      confidence: entry.summary.confidence,
+      size: entry.size,
+      lastModified: entry.lastModified,
     });
   }
 
