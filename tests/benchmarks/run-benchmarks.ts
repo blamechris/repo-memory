@@ -248,6 +248,8 @@ async function main(): Promise<void> {
   const sizes = [
     { label: 'small', count: 10 },
     { label: 'medium', count: 50 },
+    { label: 'large', count: 100 },
+    { label: 'xlarge', count: 200 },
   ];
 
   const reports: BenchmarkReport[] = [];
@@ -265,15 +267,30 @@ async function main(): Promise<void> {
 
     // Run scenarios
     console.log('  Running: Explore project...');
-    reports.push(await scenarioExploreProject(fixtureDir, size.count));
+    {
+      const start = performance.now();
+      const report = await scenarioExploreProject(fixtureDir, size.count);
+      report.durationMs = Math.round(performance.now() - start);
+      reports.push(report);
+    }
     closeDatabase();
 
     console.log('  Running: Investigate bug...');
-    reports.push(await scenarioInvestigateBug(fixtureDir, size.count));
+    {
+      const start = performance.now();
+      const report = await scenarioInvestigateBug(fixtureDir, size.count);
+      report.durationMs = Math.round(performance.now() - start);
+      reports.push(report);
+    }
     closeDatabase();
 
     console.log('  Running: Incremental change...');
-    reports.push(await scenarioIncrementalChange(fixtureDir, size.count));
+    {
+      const start = performance.now();
+      const report = await scenarioIncrementalChange(fixtureDir, size.count);
+      report.durationMs = Math.round(performance.now() - start);
+      reports.push(report);
+    }
     closeDatabase();
 
     console.log('');
