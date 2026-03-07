@@ -13,6 +13,8 @@ import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-c
 import { getTokenReport } from './tools/get-token-report.js';
 import { batchFileSummaries } from './tools/batch-file-summaries.js';
 import { getRelatedFiles } from './tools/get-related-files.js';
+import { runGC } from './cache/gc.js';
+import { SessionManager } from './memory/session.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -242,6 +244,30 @@ server.registerTool('get_related_files', {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  const projectRoot = process.cwd();
+
+  // Auto-start session
+  const sessionManager = new SessionManager(projectRoot);
+  const session = sessionManager.startSession({ source: 'mcp-connect' });
+  process.stderr.write(`Session started: ${session.id}\n`);
+
+  // End session on exit
+  const cleanup = () => {
+    try {
+      sessionManager.endSession(session.id);
+    } catch {
+      // ignore errors during cleanup
+    }
+  };
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  process.on('beforeExit', cleanup);
+
+  // Run GC in background on startup (non-blocking)
+  runGC(projectRoot).catch((err) => {
+    process.stderr.write(`GC warning: ${err instanceof Error ? err.message : String(err)}\n`);
+  });
 }
 
 main().catch((error: unknown) => {
