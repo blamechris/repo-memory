@@ -12,6 +12,7 @@ import { getDependencyGraphTool } from './tools/get-dependency-graph.js';
 import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-context.js';
 import { getTokenReport } from './tools/get-token-report.js';
 import { getRelatedFiles } from './tools/get-related-files.js';
+import { batchFileSummaries } from './tools/batch-file-summaries.js';
 import { runGC } from './cache/gc.js';
 import { SessionManager } from './memory/session.js';
 
@@ -206,6 +207,20 @@ server.registerTool('get_token_report', {
   const report = getTokenReport(projectRoot, period, hours, session_id);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }],
+  };
+});
+
+server.registerTool('batch_file_summaries', {
+  title: 'Batch File Summaries',
+  description: 'Get cached summaries for multiple files in one call. More efficient than calling get_file_summary repeatedly.',
+  inputSchema: {
+    paths: z.array(z.string()).describe('Array of file paths relative to project root'),
+  },
+}, async ({ paths }) => {
+  const projectRoot = process.cwd();
+  const result = await batchFileSummaries(projectRoot, paths);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
 });
 
