@@ -203,10 +203,14 @@ server.registerTool('get_token_report', {
       .string()
       .optional()
       .describe('Session ID (only for session period)'),
+    include_diagnostics: z
+      .boolean()
+      .optional()
+      .describe('Include cache health diagnostics'),
   },
-}, async ({ period, hours, session_id }) => {
+}, async ({ period, hours, session_id, include_diagnostics }) => {
   const projectRoot = process.cwd();
-  const report = getTokenReport(projectRoot, period, hours, session_id);
+  const report = getTokenReport(projectRoot, period, hours, session_id, include_diagnostics);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }],
   };
