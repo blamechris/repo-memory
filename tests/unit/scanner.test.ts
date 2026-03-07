@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { scanProject } from '../../src/indexer/scanner.js';
+import { clearConfigCache } from '../../src/config.js';
 
 describe('scanProject', () => {
   let tempDir: string;
@@ -119,5 +120,37 @@ describe('scanProject', () => {
     const nonExistent = join(tempDir, 'does-not-exist');
     const files = await scanProject(nonExistent);
     expect(files).toEqual([]);
+  });
+
+  it('applies ignore patterns from .repo-memory.json config', async () => {
+    clearConfigCache();
+    createFile('src/index.ts', 'export {}');
+    createFile('src/debug.log', 'log data');
+    createFile('coverage/lcov.info', 'coverage data');
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ ignore: ['*.log', 'coverage/'] }),
+    );
+
+    const files = await scanProject(tempDir);
+    expect(files).toContain('src/index.ts');
+    expect(files).not.toContain('src/debug.log');
+    expect(files).not.toContain('coverage/lcov.info');
+    clearConfigCache();
+  });
+
+  it('applies maxFiles from .repo-memory.json config', async () => {
+    clearConfigCache();
+    createFile('a.ts', '');
+    createFile('b.ts', '');
+    createFile('c.ts', '');
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ maxFiles: 2 }),
+    );
+
+    const files = await scanProject(tempDir);
+    expect(files).toHaveLength(2);
+    clearConfigCache();
   });
 });
