@@ -11,6 +11,7 @@ import { invalidateCache } from './tools/invalidate.js';
 import { getDependencyGraphTool } from './tools/get-dependency-graph.js';
 import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-context.js';
 import { getTokenReport } from './tools/get-token-report.js';
+import { getRelatedFiles } from './tools/get-related-files.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -203,6 +204,23 @@ server.registerTool('get_token_report', {
   const report = getTokenReport(projectRoot, period, hours, session_id);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }],
+  };
+});
+
+server.registerTool('get_related_files', {
+  title: 'Get Related Files',
+  description:
+    'Returns files related to the given file, ranked by dependency proximity and relevance. Useful for finding what else to look at when exploring a file.',
+  inputSchema: {
+    path: z.string().describe('File path relative to project root'),
+    limit: z.number().optional().describe('Max results (default: 10)'),
+    task_id: z.string().optional().describe('Task ID for context-aware ranking'),
+  },
+}, async ({ path, limit, task_id }) => {
+  const projectRoot = process.cwd();
+  const result = await getRelatedFiles(projectRoot, path, { limit, taskId: task_id });
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
 });
 
