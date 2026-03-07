@@ -12,6 +12,7 @@ import { getDependencyGraphTool } from './tools/get-dependency-graph.js';
 import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-context.js';
 import { getTokenReport } from './tools/get-token-report.js';
 import { batchFileSummaries } from './tools/batch-file-summaries.js';
+import { getRelatedFiles } from './tools/get-related-files.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -216,6 +217,23 @@ server.registerTool('batch_file_summaries', {
 }, async ({ paths }) => {
   const projectRoot = process.cwd();
   const result = await batchFileSummaries(projectRoot, paths);
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('get_related_files', {
+  title: 'Get Related Files',
+  description:
+    'Returns files related to the given file, ranked by dependency proximity and relevance. Useful for finding what else to look at when exploring a file.',
+  inputSchema: {
+    path: z.string().describe('File path relative to project root'),
+    limit: z.number().optional().describe('Max results (default: 10)'),
+    task_id: z.string().optional().describe('Task ID for context-aware ranking'),
+  },
+}, async ({ path, limit, task_id }) => {
+  const projectRoot = process.cwd();
+  const result = await getRelatedFiles(projectRoot, path, { limit, taskId: task_id });
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
