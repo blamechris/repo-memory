@@ -22,23 +22,6 @@ const IMPORT_SIDE_EFFECT_PATTERN = /^import\s+['"]([^'"]+)['"]/gm;
 const TOP_LEVEL_DECLARATION_PATTERN =
   /^(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(const|let|var|function\s*\*?|class|interface|type|enum)\s+(\w+)/gm;
 
-// Python patterns
-const PY_DECLARATION_PATTERN =
-  /^(?:async\s+)?(?:def|class)\s+(\w+)/gm;
-
-const PY_IMPORT_FROM_PATTERN = /^(?:from\s+\S+\s+import\s+.+|import\s+\S+)/gm;
-
-// Go patterns
-const GO_DECLARATION_PATTERN =
-  /^(?:func\s+(?:\([^)]*\)\s+)?(\w+)|type\s+(\w+)\s+(?:struct|interface)|var\s+(\w+)|const\s+(\w+))/gm;
-
-const GO_IMPORT_PATTERN = /^import\s+(?:\([\s\S]*?\)|"[^"]+")/gm;
-
-// Rust patterns
-const RUST_DECLARATION_PATTERN =
-  /^(?:pub\s+)?(?:fn|struct|enum|trait|impl|type|const|static|mod)\s+(\w+)/gm;
-
-const RUST_USE_PATTERN = /^(?:pub\s+)?use\s+.+;/gm;
 
 function getExtension(filePath: string): string {
   if (filePath.endsWith('.d.ts')) return '.d.ts';

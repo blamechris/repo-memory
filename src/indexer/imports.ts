@@ -264,32 +264,6 @@ export function extractPythonImports(
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Strip Go comments and string literals.
- */
-function stripGoNonCode(contents: string): string {
-  let result = contents;
-
-  // Remove block comments
-  result = result.replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length));
-
-  // Remove raw string literals (backtick)
-  result = result.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length));
-
-  // Remove regular string literals
-  result = result.replace(/"(?:[^"\\]|\\.)*"/g, (m) => {
-    // Preserve the quotes for import parsing — only blank out non-import strings
-    // Actually, we need the import strings. Let's be smarter: only strip strings
-    // that are NOT part of import statements.
-    return m;
-  });
-
-  // Remove line comments
-  result = result.replace(/\/\/.*/g, (m) => ' '.repeat(m.length));
-
-  return result;
-}
-
-/**
  * A more targeted approach: strip comments and raw strings, but keep
  * double-quoted strings intact (since Go imports use them).
  * Then verify imports by matching the import keyword context.
