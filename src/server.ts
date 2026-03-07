@@ -13,6 +13,7 @@ import { createTaskTool, getTaskContext, markExploredTool } from './tools/task-c
 import { getTokenReport } from './tools/get-token-report.js';
 import { getRelatedFiles } from './tools/get-related-files.js';
 import { batchFileSummaries } from './tools/batch-file-summaries.js';
+import { searchByPurpose } from './tools/search-by-purpose.js';
 import { runGC } from './cache/gc.js';
 import { SessionManager } from './memory/session.js';
 
@@ -236,6 +237,21 @@ server.registerTool('get_related_files', {
 }, async ({ path, limit, task_id }) => {
   const projectRoot = process.cwd();
   const result = await getRelatedFiles(projectRoot, path, { limit, taskId: task_id });
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+  };
+});
+
+server.registerTool('search_by_purpose', {
+  title: 'Search By Purpose',
+  description: 'Search cached file summaries by keyword. Matches against file purpose, exports, and declarations. Requires files to have been previously summarized.',
+  inputSchema: {
+    query: z.string().describe('Search keywords (e.g., "database", "auth middleware", "validation")'),
+    limit: z.number().optional().describe('Max results (default: 20)'),
+  },
+}, async ({ query, limit }) => {
+  const projectRoot = process.cwd();
+  const result = searchByPurpose(projectRoot, query, limit);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };
