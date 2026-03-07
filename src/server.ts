@@ -16,6 +16,7 @@ import { batchFileSummaries } from './tools/batch-file-summaries.js';
 import { searchByPurpose } from './tools/search-by-purpose.js';
 import { runGC } from './cache/gc.js';
 import { SessionManager } from './memory/session.js';
+import { loadConfig } from './config.js';
 
 const server = new McpServer({
   name: 'repo-memory',
@@ -285,8 +286,11 @@ async function main() {
   process.on('SIGTERM', cleanup);
   process.on('beforeExit', cleanup);
 
+  // Load project config
+  const config = loadConfig(projectRoot);
+
   // Run GC in background on startup (non-blocking)
-  runGC(projectRoot).catch((err) => {
+  runGC(projectRoot, config.gc).catch((err) => {
     process.stderr.write(`GC warning: ${err instanceof Error ? err.message : String(err)}\n`);
   });
 }

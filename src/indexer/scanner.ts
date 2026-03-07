@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import { readdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { promisify } from 'util';
+import { loadConfig } from '../config.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -120,21 +121,26 @@ export async function scanProject(
   rootDir: string,
   options?: ScanOptions,
 ): Promise<string[]> {
+  const config = loadConfig(rootDir);
   const useGit = await isGitRepo(rootDir);
   const rawFiles = useGit ? await scanWithGit(rootDir) : await scanWithFs(rootDir);
+
+  // Merge config ignore patterns with explicit exclude options
+  const exclude = [...(options?.exclude ?? []), ...(config.ignore ?? [])];
 
   let filtered = rawFiles.filter((f) => {
     const parts = f.split('/');
     if (parts.some((p) => ALWAYS_SKIP.has(p))) return false;
     if (isBinaryPath(f)) return false;
-    if (!shouldInclude(f, options?.include, options?.exclude)) return false;
+    if (!shouldInclude(f, options?.include, exclude.length > 0 ? exclude : undefined)) return false;
     return true;
   });
 
   filtered.sort((a, b) => a.localeCompare(b));
 
-  if (options?.maxFiles && filtered.length > options.maxFiles) {
-    filtered = filtered.slice(0, options.maxFiles);
+  const maxFiles = options?.maxFiles ?? config.maxFiles;
+  if (maxFiles && filtered.length > maxFiles) {
+    filtered = filtered.slice(0, maxFiles);
   }
 
   return filtered;
