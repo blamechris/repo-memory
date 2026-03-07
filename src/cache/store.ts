@@ -62,6 +62,28 @@ export class CacheStore {
     db.prepare('DELETE FROM files WHERE path = ?').run(path);
   }
 
+  setEntries(entries: Array<{ path: string; hash: string; summary?: FileSummary | null }>): void {
+    const db = getDatabase(this.projectRoot);
+    const now = Date.now();
+    const stmt = db.prepare(
+      `INSERT INTO files (path, hash, last_checked, summary_json)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(path) DO UPDATE SET
+         hash = excluded.hash,
+         last_checked = excluded.last_checked,
+         summary_json = excluded.summary_json`,
+    );
+
+    const runBatch = db.transaction(() => {
+      for (const entry of entries) {
+        const summaryJson = entry.summary ? JSON.stringify(entry.summary) : null;
+        stmt.run(entry.path, entry.hash, now, summaryJson);
+      }
+    });
+
+    runBatch();
+  }
+
   getStaleEntries(maxAge: number): CacheEntry[] {
     const db = getDatabase(this.projectRoot);
     const cutoff = Date.now() - maxAge;
