@@ -79,6 +79,31 @@ export class DependencyGraph {
     return sources ? [...sources] : [];
   }
 
+  /** Get edges where specifiers contain the given symbol. */
+  getEdgesBySymbol(symbol: string, sourcePath?: string): Array<{ source: string; target: string; specifiers: string[] }> {
+    const db = getDatabase(this.projectRoot);
+    let rows: Array<{ source: string; target: string; specifiers: string }>;
+
+    if (sourcePath) {
+      rows = db
+        .prepare('SELECT source, target, specifiers FROM imports WHERE (source = ? OR target = ?)')
+        .all(sourcePath, sourcePath) as Array<{ source: string; target: string; specifiers: string }>;
+    } else {
+      rows = db
+        .prepare('SELECT source, target, specifiers FROM imports')
+        .all() as Array<{ source: string; target: string; specifiers: string }>;
+    }
+
+    const results: Array<{ source: string; target: string; specifiers: string[] }> = [];
+    for (const row of rows) {
+      const specifiers: string[] = JSON.parse(row.specifiers);
+      if (specifiers.includes(symbol)) {
+        results.push({ source: row.source, target: row.target, specifiers });
+      }
+    }
+    return results;
+  }
+
   /** Get transitive dependencies using BFS with optional depth limit. */
   getTransitiveDependencies(path: string, maxDepth?: number): string[] {
     return this.bfs(path, this.outgoing, maxDepth);
