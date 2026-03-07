@@ -34,7 +34,10 @@ export async function getRelatedFiles(
       !file.endsWith('.tsx') &&
       !file.endsWith('.jsx') &&
       !file.endsWith('.mjs') &&
-      !file.endsWith('.cjs')
+      !file.endsWith('.cjs') &&
+      !file.endsWith('.py') &&
+      !file.endsWith('.go') &&
+      !file.endsWith('.rs')
     ) {
       continue;
     }
