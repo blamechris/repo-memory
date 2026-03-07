@@ -52,4 +52,36 @@ describe('getDependencyGraphTool', () => {
     expect(result.nodes).toContain('src/helper.js');
     // At depth 1, should not include transitive deps of helper
   });
+
+  describe('symbol filter', () => {
+    it('filters by symbol when path is given', async () => {
+      const result = await getDependencyGraphTool(tempDir, 'src/index.ts', undefined, undefined, 'helper');
+      expect(result.edges).toEqual([{ from: 'src/index.ts', to: 'src/helper.js' }]);
+      expect(result.nodes).toContain('src/index.ts');
+      expect(result.nodes).toContain('src/helper.js');
+    });
+
+    it('filters by symbol when path is NOT given (search all edges)', async () => {
+      const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'util');
+      expect(result.edges.some((e) => e.from === 'src/helper.ts' && e.to === 'src/util.js')).toBe(true);
+      expect(result.nodes).toContain('src/helper.ts');
+      expect(result.nodes).toContain('src/util.js');
+    });
+
+    it('returns empty results for non-existent symbol', async () => {
+      const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'NonExistent');
+      expect(result.nodes).toEqual([]);
+      expect(result.edges).toEqual([]);
+      expect(result.stats.totalFiles).toBe(0);
+      expect(result.stats.totalEdges).toBe(0);
+    });
+
+    it('uses case-sensitive matching', async () => {
+      const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'Helper');
+      expect(result.edges).toEqual([]);
+
+      const result2 = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'helper');
+      expect(result2.edges.length).toBeGreaterThan(0);
+    });
+  });
 });

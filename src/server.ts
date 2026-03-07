@@ -127,10 +127,11 @@ server.registerTool('get_dependency_graph', {
       .optional()
       .describe('Query direction (default: both)'),
     depth: z.number().optional().describe('Max traversal depth'),
+    symbol: z.string().optional().describe('Filter edges by import specifier (e.g., "UserService")'),
   },
-}, async ({ path, direction, depth }) => {
+}, async ({ path, direction, depth, symbol }) => {
   const projectRoot = process.cwd();
-  const result = await getDependencyGraphTool(projectRoot, path, direction, depth);
+  const result = await getDependencyGraphTool(projectRoot, path, direction, depth, symbol);
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result) }],
   };

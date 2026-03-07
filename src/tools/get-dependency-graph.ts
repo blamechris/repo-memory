@@ -19,6 +19,7 @@ export async function getDependencyGraphTool(
   path?: string,
   direction?: 'dependencies' | 'dependents' | 'both',
   depth?: number,
+  symbol?: string,
 ): Promise<DependencyGraphResult> {
   if (path) {
     path = validatePath(projectRoot, path);
@@ -38,6 +39,10 @@ export async function getDependencyGraphTool(
     } catch {
       // Skip unreadable files
     }
+  }
+
+  if (symbol) {
+    return getSymbolEdges(graph, symbol, path);
   }
 
   if (path) {
@@ -75,6 +80,32 @@ function getNeighborhood(
       nodes.add(dep);
       edges.push({ from: dep, to: path });
     }
+  }
+
+  return {
+    nodes: [...nodes].sort(),
+    edges,
+    stats: {
+      totalFiles: nodes.size,
+      totalEdges: edges.length,
+      mostConnected: graph.getMostConnected(5),
+    },
+  };
+}
+
+function getSymbolEdges(
+  graph: DependencyGraph,
+  symbol: string,
+  path?: string,
+): DependencyGraphResult {
+  const matchingEdges = graph.getEdgesBySymbol(symbol, path);
+  const nodes = new Set<string>();
+  const edges: Array<{ from: string; to: string }> = [];
+
+  for (const edge of matchingEdges) {
+    nodes.add(edge.source);
+    nodes.add(edge.target);
+    edges.push({ from: edge.source, to: edge.target });
   }
 
   return {
