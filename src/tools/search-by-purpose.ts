@@ -74,7 +74,7 @@ export function searchByPurpose(
 
   return {
     query,
-    results: results.slice(0, effectiveLimit).map(({ score, ...rest }) => rest),
+    results: results.slice(0, effectiveLimit).map(({ score: _score, ...rest }) => rest),
     totalCached: allEntries.filter(e => e.summary).length,
   };
 }
