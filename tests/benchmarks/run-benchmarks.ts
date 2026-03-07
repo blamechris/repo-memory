@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable no-console */
 /**
  * Standalone benchmark script for measuring token savings.
  * Run with: npx tsx tests/benchmarks/run-benchmarks.ts
@@ -102,7 +103,7 @@ async function scenarioInvestigateBug(
   await invalidateCache(projectRoot);
 
   const files = await getProjectFiles(projectRoot);
-  const rawBytes = getRawBytes(projectRoot, files);
+  void getRawBytes(projectRoot, files);
 
   // Create a task
   const task = createTaskTool(projectRoot, 'Investigate bug #42');
@@ -203,7 +204,7 @@ async function scenarioIncrementalChange(
   writeFileSync(targetPath, modified, 'utf-8');
 
   // Now detect changes
-  const changes = await getChangedFiles(projectRoot);
+  await getChangedFiles(projectRoot);
 
   // Get summaries — most should be cache hits except the changed file
   let summaryBytes = 0;

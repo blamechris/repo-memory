@@ -1,6 +1,5 @@
 import { describe, bench, beforeAll, afterAll } from 'vitest';
-import { readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { buildProjectMap } from '../../src/indexer/project-map.js';
 import { createTaskTool, markExploredTool } from '../../src/tools/task-context.js';
@@ -14,18 +13,6 @@ import { createBenchmarkFixture } from './benchmark-utils.js';
 // ---------------------------------------------------------------------------
 
 const fixtures: Record<string, string> = {};
-
-function getRawBytes(projectRoot: string, files: string[]): number {
-  let total = 0;
-  for (const f of files) {
-    try {
-      total += readFileSync(join(projectRoot, f)).length;
-    } catch {
-      // skip
-    }
-  }
-  return total;
-}
 
 // ---------------------------------------------------------------------------
 // Small project benchmarks (10 files)
