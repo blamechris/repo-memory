@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "start": "node dist/server.js",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.ts' 'tests/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true"
+    "format": "prettier --write 'src/**/*.ts' '*.json' '*.mjs' && prettier --write 'tests/**/*.ts' 2>/dev/null || true",
+    "benchmark": "tsx tests/benchmarks/run-benchmarks.ts"
   },
   "keywords": [
     "mcp",
