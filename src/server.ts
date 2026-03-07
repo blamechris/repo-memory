@@ -19,7 +19,7 @@ import { SessionManager } from './memory/session.js';
 
 const server = new McpServer({
   name: 'repo-memory',
-  version: '0.2.0',
+  version: '0.3.0',
 });
 
 server.registerTool('get_file_summary', {
