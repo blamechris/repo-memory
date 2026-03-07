@@ -29,7 +29,8 @@ export async function getDependencyGraphTool(
   const files = await scanProject(projectRoot);
   for (const file of files) {
     if (!file.endsWith('.ts') && !file.endsWith('.js') && !file.endsWith('.tsx') &&
-        !file.endsWith('.jsx') && !file.endsWith('.mjs') && !file.endsWith('.cjs')) {
+        !file.endsWith('.jsx') && !file.endsWith('.mjs') && !file.endsWith('.cjs') &&
+        !file.endsWith('.py') && !file.endsWith('.go') && !file.endsWith('.rs')) {
       continue;
     }
     try {
