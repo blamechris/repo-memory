@@ -96,6 +96,31 @@ describe('buildProjectMap', () => {
     expect(map.tree.fileCount).toBe(9);
   });
 
+  it('should include size, lastModified, and confidence on file entries', async () => {
+    const map = await buildProjectMap(tempDir);
+
+    // Collect all file entries from the tree
+    function collectFiles(node: typeof map.tree): typeof map.tree.files {
+      let files = [...node.files];
+      for (const child of node.children) {
+        files = files.concat(collectFiles(child));
+      }
+      return files;
+    }
+
+    const allFiles = collectFiles(map.tree);
+    expect(allFiles.length).toBeGreaterThan(0);
+
+    for (const file of allFiles) {
+      // size should be a positive number
+      expect(file.size).toBeGreaterThan(0);
+      // lastModified should be a valid epoch timestamp (after 2020-01-01)
+      expect(file.lastModified).toBeGreaterThan(1577836800000);
+      // confidence should be one of the known values
+      expect(['high', 'medium', 'low']).toContain(file.confidence);
+    }
+  });
+
   it('should reuse cached summaries on repeated calls', async () => {
     const map1 = await buildProjectMap(tempDir);
     const map2 = await buildProjectMap(tempDir);
