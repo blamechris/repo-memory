@@ -1,6 +1,5 @@
 import { CacheStore } from '../cache/store.js';
 import { TelemetryTracker } from '../telemetry/tracker.js';
-import { estimateTokens } from '../telemetry/tokens.js';
 
 export interface SearchResult {
   path: string;
@@ -81,9 +80,8 @@ export function searchByPurpose(
   const tracker = new TelemetryTracker(projectRoot);
   for (const result of matched) {
     const entry = allEntries.find(e => e.path === result.path);
-    const estimatedRawTokens = entry?.summary
-      ? estimateTokens('x'.repeat(entry.summary.lineCount * 40))
-      : 0;
+    // Approximate raw file tokens from lineCount (avg ~40 chars/line, ~4 chars/token)
+    const estimatedRawTokens = entry?.summary ? entry.summary.lineCount * 10 : 0;
     tracker.trackEvent('summary_served', result.path, estimatedRawTokens);
   }
 
