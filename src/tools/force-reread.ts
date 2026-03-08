@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
 import { summarizeFile } from '../indexer/summarizer.js';
+import { TelemetryTracker } from '../telemetry/tracker.js';
+import { estimateTokens } from '../telemetry/tokens.js';
 import type { FileSummary } from '../types.js';
 import { validatePath } from '../utils/validate-path.js';
 
@@ -18,6 +20,9 @@ export async function forceReread(
 
   const store = new CacheStore(projectRoot);
   store.setEntry(relativePath, hash, summary);
+
+  const tracker = new TelemetryTracker(projectRoot);
+  tracker.trackEvent('force_reread', relativePath, estimateTokens(contents));
 
   return { path: relativePath, hash, summary, reread: true, reason: 'force_reread: explicitly requested' };
 }

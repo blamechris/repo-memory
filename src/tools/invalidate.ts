@@ -1,4 +1,5 @@
 import { CacheStore } from '../cache/store.js';
+import { TelemetryTracker } from '../telemetry/tracker.js';
 import { validatePath } from '../utils/validate-path.js';
 
 export async function invalidateCache(
@@ -9,9 +10,11 @@ export async function invalidateCache(
     path = validatePath(projectRoot, path);
   }
   const store = new CacheStore(projectRoot);
+  const tracker = new TelemetryTracker(projectRoot);
 
   if (path) {
     store.deleteEntry(path);
+    tracker.trackEvent('invalidation', path);
     return { invalidated: path, entriesRemoved: 1 };
   }
 
@@ -19,6 +22,7 @@ export async function invalidateCache(
   const count = entries.length;
   for (const entry of entries) {
     store.deleteEntry(entry.path);
+    tracker.trackEvent('invalidation', entry.path);
   }
 
   return { invalidated: 'all', entriesRemoved: count };

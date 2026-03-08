@@ -20,7 +20,7 @@ import { loadConfig } from './config.js';
 
 const server = new McpServer({
   name: 'repo-memory',
-  version: '0.4.0',
+  version: '0.5.0',
 });
 
 server.registerTool('get_file_summary', {
