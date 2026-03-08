@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
 import { summarizeFile } from '../indexer/summarizer.js';
+import { TelemetryTracker } from '../telemetry/tracker.js';
+import { estimateTokensSaved } from '../telemetry/tokens.js';
 import type { FileSummary } from '../types.js';
 import { validatePath } from '../utils/validate-path.js';
 
@@ -34,7 +36,12 @@ export async function getFileSummary(
     ? Math.floor((Date.now() - cached.lastChecked) / 1000)
     : null;
 
+  const tracker = new TelemetryTracker(projectRoot);
+
   if (cached && cached.hash === currentHash && cached.summary) {
+    const tokensSaved = estimateTokensSaved(contents, cached.summary);
+    tracker.trackEvent('cache_hit', relativePath, tokensSaved);
+
     return {
       path: relativePath,
       hash: currentHash,
@@ -58,6 +65,8 @@ export async function getFileSummary(
   } else {
     reason = 'cache_miss: no summary in cache';
   }
+
+  tracker.trackEvent('cache_miss', relativePath, 0);
 
   return {
     path: relativePath,
