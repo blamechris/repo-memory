@@ -3,6 +3,12 @@ import { join } from 'path';
 
 const CONFIG_FILENAME = '.repo-memory.json';
 
+export interface ToolGroupConfig {
+  summaries?: boolean;
+  tasks?: boolean;
+  telemetry?: boolean;
+}
+
 export interface RepoMemoryConfig {
   ignore?: string[];
   maxFiles?: number;
@@ -11,6 +17,7 @@ export interface RepoMemoryConfig {
     taskMaxAgeDays?: number;
     telemetryMaxAgeDays?: number;
   };
+  tools?: ToolGroupConfig;
 }
 
 const configCache = new Map<string, RepoMemoryConfig>();
@@ -73,6 +80,23 @@ function validateConfig(raw: unknown): RepoMemoryConfig {
           throw new Error(`"gc.${key}" must be a positive number`);
         }
         config.gc[key] = gc[key];
+      }
+    }
+  }
+
+  if ('tools' in obj) {
+    if (typeof obj.tools !== 'object' || obj.tools === null || Array.isArray(obj.tools)) {
+      throw new Error('"tools" must be an object');
+    }
+    const tools = obj.tools as Record<string, unknown>;
+    config.tools = {};
+
+    for (const key of ['summaries', 'tasks', 'telemetry'] as const) {
+      if (key in tools) {
+        if (typeof tools[key] !== 'boolean') {
+          throw new Error(`"tools.${key}" must be a boolean`);
+        }
+        config.tools[key] = tools[key];
       }
     }
   }
