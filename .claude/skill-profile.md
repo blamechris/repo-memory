@@ -20,7 +20,7 @@
 - Commit style: conventional commits `type(scope): description`. Types: feat, fix, refactor, test, docs, chore. Scopes: `server, cache, indexer, memory, graph, telemetry, infra`.
 - Flow: PR-based on `main`, branch protection, **squash merges**, **conversation resolution required**; no direct pushes or force-pushes to main.
 - Source patterns: `src/**/*.ts`; tests `tests/unit/*.test.ts` + `tests/integration/*.test.ts`; fixtures `tests/fixtures/`; benchmarks `tests/benchmarks/`. Git worktrees under `.claude/worktrees/`.
-- Labels: `epic:{infra,cache-engine,mcp-server,indexer,task-memory,graph,persistence,telemetry,dx}`, `complexity:{low,medium,high}`, `testing:{low,medium,high}`, plus `bug`, `enhancement`, `good first issue`, `help wanted`, `wontfix`, `design-spike`, `from-review`.
+- Labels: `epic:{infra,cache-engine,mcp-server,indexer,task-memory,graph,persistence,telemetry,dx}`, `complexity:{low,medium,high}`, `testing:{low,medium,high}`, plus `bug`, `enhancement`, `good first issue`, `help wanted`, `wontfix`, `design-spike`, `from-review`, and the GitHub defaults (`documentation`, `duplicate`, `invalid`, `question`).
 - Design ethos: prefer enhancing existing MCP tools (optional params) over adding new tools — each tool costs ~100 tokens/turn in the system prompt.
 
 ## release Customizations
@@ -52,23 +52,50 @@
 - Criteria emphasis: TS strict/ESM/no-`console.log`; cache correctness (never stale); prefer optional params over new MCP tools; DB changes via `src/persistence/` migrations.
 - Issues: label `enhancement` + `from-review`; `type(scope)` titles with the scope list above.
 
-## project-audit / swarm-audit / agentic-audit Customizations
-- Add domain auditor/reviewer personas: **Cache Correctness** (stale-data, hash determinism, invalidation paths) and **MCP Protocol** (tool contracts, stdio transport, tool-count/token ROI). Sentinel security lens = filesystem + SQLite attack surface, not web vulns.
-- Grading: treat cache correctness and SHA-256 determinism as gating/Critical.
+## project-audit Customizations
+- Auditor personas to add: **Cache Correctness** (stale-data, hash determinism, invalidation paths) and **MCP Protocol** (tool contracts, stdio transport, tool-count/token ROI). Security lens = filesystem + SQLite attack surface, not web vulns. Treat cache correctness and SHA-256 determinism as gating/Critical.
+
+## swarm-audit Customizations
+- Add the **Cache Correctness** and **MCP Protocol** personas (as in project-audit). Grading caps on stale-data risk and hashing determinism.
+
+## agentic-audit Customizations
+- Add **Cache Correctness** and **MCP Protocol** reviewer personas to the PR-review roster; emphasize never-stale-data and MCP stdio/tool-contract correctness.
 
 ## bug-hunt Customizations
 - Bias hunters toward stale-cache/invalidation correctness in `src/cache`, `src/indexer`, `src/persistence` (the project's hard invariant). Labels: `bug` + the `epic:*`/`complexity:*`/`testing:*` families.
 
-## create-issue / create-pr / decompose-issue / start-working / tackle-issues Customizations
-- Use the real label taxonomy above (`epic:*`, `complexity:*`, `testing:*`, `from-review`). PR bodies auto-detect issue closures (`Closes #N`); zero attribution in bodies. Work sources: GitHub issues + open PRs; design docs under `docs/planning/`.
+## create-issue Customizations
+- Use the real label taxonomy (`epic:*`, `complexity:*`, `testing:*`, plus `from-review` for review-spawned issues). Zero attribution in bodies.
 
-## merge / batch-merge / merge-gate / fix-ci Customizations
-- Required CI check name: **`ci`** (the single job in `ci.yml`). Merge via **squash**; branch protection requires conversations resolved before merge.
-- Never `npm publish` from a merge — publishing is a separate OTP-gated manual step (see release).
-- fix-ci: typecheck-passes-while-lint-fails is a known failure mode (check lint separately); better-sqlite3 native ABI on a new Node major → reinstall for a matching prebuilt, not source rebuild.
+## create-pr Customizations
+- Squash-merge target `main`; PR bodies auto-detect issue closures (`Closes #N`); zero attribution in titles/bodies. Label with `from-review` when applicable.
 
-## parallel-dev / autonomous-dev-flow Customizations
-- Per-agent verification = the full gate `npm run typecheck && npm run lint && npm test && npm run build`. Worktrees live under `.claude/worktrees/`. Worktree agents commonly leave unused vars that pass typecheck but fail lint — always run lint independently.
+## decompose-issue Customizations
+- Sub-issue labels from the real taxonomy (`enhancement` + `complexity:*`); sub-task titles follow `type(scope): description` with the repo scope list.
+
+## start-working Customizations
+- Work sources: open GitHub issues + open PRs; design docs under `docs/planning/`. Ready signals: `complexity:low`/`complexity:medium`, `good first issue`, `help wanted`. Blocked signals: `wontfix`, `design-spike`.
+
+## tackle-issues Customizations
+- Branch prefix `auto/`; worktrees under `.claude/worktrees/`. Per-issue verification = the full gate; run `npm run lint` independently (worktree agents leave unused vars that pass typecheck but fail lint).
+
+## merge Customizations
+- Required CI check: **`ci`** (single job in `ci.yml`). Merge via **squash**; conversations must be resolved (branch protection). Never `npm publish` from a merge — publishing is a separate OTP-gated manual step (see release).
+
+## batch-merge Customizations
+- Required check `ci`; squash-merge; conversation resolution required before merge.
+
+## merge-gate Customizations
+- The common merge blocker is **unresolved conversations** (branch protection); resolve threads via GraphQL. Squash-merge.
+
+## fix-ci Customizations
+- CI = the `ci` job in `ci.yml` (Node 20.x). Known failure mode: typecheck passes while lint fails (unused vars) — check lint separately. better-sqlite3 native ABI on a new Node major → reinstall for a matching prebuilt, not a source rebuild.
+
+## parallel-dev Customizations
+- Per-agent verification = the full gate `npm run typecheck && npm run lint && npm test && npm run build`. Worktrees under `.claude/worktrees/`; run lint independently (typecheck-passes/lint-fails footgun).
+
+## autonomous-dev-flow Customizations
+- Full-gate verification per agent; worktrees under `.claude/worktrees/`; lint independently. Decompose only issues genuinely too large to implement directly.
 
 ## smoke-test Customizations
 - This is a **headless MCP stdio server — no browser/UI**. A smoke test = build → spawn `node dist/server.js` → MCP `initialize` (assert `serverInfo.name === "repo-memory"`) → `tools/list`. No screenshots/aria/URLs.
