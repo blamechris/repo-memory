@@ -62,7 +62,7 @@ The savings compound fast. An agent exploring a project touches the same files 3
 
 ## Tools
 
-Tools are organized into **groups**. The `navigation` group is always on; `summaries`, `tasks`, and `telemetry` are **off by default** — each MCP tool adds ~100 tokens/turn to the system prompt, so the default surface is kept lean. Enable the groups you want in `.repo-memory.json` (see [Configuration](#configuration)).
+Tools are organized into **groups**. `navigation` and `summaries` are **on by default** — together they deliver the core "understand the repo without re-reading" loop. `tasks` and `telemetry` are **off by default** (niche/meta features; each MCP tool adds ~100 tokens/turn, so the default surface stays lean). Toggle any group in `.repo-memory.json` (see [Configuration](#configuration)).
 
 **Navigation** — always on:
 
@@ -73,7 +73,7 @@ Tools are organized into **groups**. The `navigation` group is always on; `summa
 | `get_dependency_graph` | File dependency relationships |
 | `get_changed_files` | Files changed since last check |
 
-**Summaries** — off by default; enable with `"tools": { "summaries": true }`:
+**Summaries** — on by default (the core feature); disable with `"tools": { "summaries": false }`:
 
 | Tool | Description |
 |------|-------------|
@@ -185,14 +185,13 @@ Create a `.repo-memory.json` in your project root to customize behavior:
     "cacheMaxAgeDays": 30
   },
   "tools": {
-    "summaries": true,
     "tasks": true,
     "telemetry": true
   }
 }
 ```
 
-The `tools` block toggles optional tool groups. The `navigation` group is always on; `summaries`, `tasks`, and `telemetry` are **off by default** — set each to `true` to enable it. An invalid `.repo-memory.json` is ignored in full (built-in defaults apply) with a warning on stderr, rather than partially applied.
+The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable). An invalid `.repo-memory.json` is ignored in full (built-in defaults apply) with a warning on stderr, rather than partially applied.
 
 ## Language Support
 

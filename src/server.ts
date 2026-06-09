@@ -94,8 +94,8 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
     };
   });
 
-  // === SUMMARIES GROUP (off by default) ===
-  if (config.tools?.summaries) {
+  // === SUMMARIES GROUP (on by default — the core feature; disable with "tools": { "summaries": false }) ===
+  if (config.tools?.summaries !== false) {
     server.registerTool('get_file_summary', {
       title: 'Get File Summary',
       description:
@@ -291,7 +291,7 @@ async function main() {
 
   // Log enabled tool groups
   const enabledGroups = ['navigation'];
-  if (config.tools?.summaries) enabledGroups.push('summaries');
+  if (config.tools?.summaries !== false) enabledGroups.push('summaries');
   if (config.tools?.tasks) enabledGroups.push('tasks');
   if (config.tools?.telemetry) enabledGroups.push('telemetry');
   process.stderr.write(`Tool groups: ${enabledGroups.join(', ')}\n`);
