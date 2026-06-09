@@ -53,7 +53,7 @@ If any gate fails, stop and report which one — do not continue to the bump.
 
 Bump per the resolved type from step 1.
 
-Run `npm version <patch|minor|major>` — this auto-creates **both** a version commit and a git tag. Because direct pushes to `main` are forbidden (branch protection) and the repo squash-merges PRs, land the bump via PR rather than pushing the local commit directly. The tag step (step 7) must **not** double-tag — `npm version` has already created the tag for this version.
+Run `npm version <patch|minor|major> --no-git-tag-version` — this updates `package.json` (and the lockfile) **without** creating a commit or a git tag. Direct pushes to `main` are forbidden (branch protection) and the repo squash-merges PRs, so the bump must land via PR: commit it on a branch, open a PR, and wait for it to **merge** before publishing. Do **not** create a local tag at bump time — a tag created now would point at a commit the squash merge will replace. The tag is created on the merged bump commit in step 7.
 
 State the resolved next version before continuing.
 
@@ -73,7 +73,7 @@ Produce the exact artifacts that will be published — never publish from a stal
 
 If `--dry-run` or `--no-publish`, skip this step and say so.
 
-Publish to the project's distribution target.
+Publish **only after** the version-bump PR from step 3 has been **merged** into `main`, and you have `git checkout main && git pull` + rebuilt (step 5) from the updated branch — the published artifact must carry the bumped version, never a stale local tree. Do not publish before the bump lands.
 
 Publish command: `npm publish --access public` (package `@blamechris/repo-memory`). Footguns specific to this project:
 
@@ -85,13 +85,16 @@ Show the publish output in full — do not truncate it, so any auth URL, OTP pro
 
 ### 7. Tag and push
 
-If `--dry-run`, skip. Otherwise:
+If `--dry-run`, skip. Otherwise tag the exact released commit:
 
-- Commit the version bump (and changelog) if the bump tool did not.
-- Create an annotated tag for the new version (skip if step 3's tool already tagged).
-- Push the commit and the tag to the remote `origin main`. Direct pushes to `main` are forbidden (branch protection) — the version bump must land via PR, not a direct push; push only the tag created in step 3.
+The version bump already landed via the merged PR (step 3), so the bumped version is in `main`'s history. From an up-to-date `main`, create the annotated tag on that merged bump commit and push **only the tag** to `origin main`:
 
-Do not force-push.
+```bash
+git tag -a v<new version> -m "v<new version>"
+git push origin v<new version>
+```
+
+Do **not** push commits to `main` directly (branch protection forbids it — the bump already arrived via PR), and do not double-tag. Do not force-push.
 
 ### 8. Post-publish verification
 
@@ -115,4 +118,4 @@ Summarize concisely:
 
 If `--dry-run`, make clear that nothing was bumped, published, tagged, or pushed.
 
-<!-- skill-templates: release e4df909 2026-06-09 -->
+<!-- skill-templates: release 3254376 2026-06-09 -->

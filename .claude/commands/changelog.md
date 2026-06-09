@@ -10,11 +10,11 @@ Use this standalone to draft notes, or let `/release` invoke it as its notes ste
   - `--from=REF` — start of the range (default: the previous release tag, e.g. `git describe --tags --abbrev=0`).
   - `--to=REF` — end of the range (default: `HEAD`).
   - `--version=X` — the version label to head the new section with (default: `Unreleased`).
-  - `--output=DEST` — where to write: the changelog file (default), `release` to draft a GitHub release body, or `-` for stdout only.
+  - `--output=DEST` — where to write: `release` (a GitHub release body — the default for this repo, which keeps no changelog file) or `-` for stdout only.
 
 Examples:
 ```
-/changelog                          # notes since the last tag, into the changelog file
+/changelog                          # notes since the last tag, as a GitHub release body
 /changelog --version=1.4.0
 /changelog --from=v1.2.0 --to=v1.3.0 --output=-
 /changelog --output=release         # draft a GitHub release body
@@ -27,34 +27,26 @@ Examples:
 Determine `FROM..TO`:
 
 ```bash
-FROM=${from:-$(git describe --tags --abbrev=0 2>/dev/null)}
+FROM=${from:-$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -1)}
 TO=${to:-HEAD}
 ```
 
-If there is no prior tag (first release), use the repository's root commit as the start and say so in the output. State the resolved range before collecting.
+When `FROM` falls back to the root commit (first release, no prior tag), say so in the output. State the resolved range before collecting.
 
 ### 2. Collect what changed in the range
 
 Prefer **merged PRs** (richer titles, labels, author, and a link) and fall back to commit subjects where a change landed without a PR.
 
-```bash
-# Merged PRs whose merge commit is in range (gh + git):
-git log --merges --first-parent ${FROM}..${TO} --pretty='%s'   # "Merge pull request #N ..."
-# Or, for squash-merge repos, PRs by merge date:
-gh pr list --state merged --base <release branch> --json number,title,labels,mergedAt,url \
-  --search "merged:>=$(git log -1 --format=%cs ${FROM})"
-# Direct commits not from a PR:
-git log ${FROM}..${TO} --no-merges --pretty='%s (%h)'
-```
-
-repo-memory **squash-merges** PRs into `main`, so there are no merge commits to enumerate — list shipped changes by PR merge date:
+repo-memory **squash-merges** PRs into `main`, so there are no merge commits to enumerate — list shipped changes by PR merge date, reusing the `$FROM`/`$TO` resolved in step 1:
 
 ```bash
 gh pr list --state merged --base main --json number,title,labels,mergedAt,url \
-  --search "merged:>=$(git log -1 --format=%cs "$(git describe --tags --abbrev=0)")"
+  --search "merged:>=$(git log -1 --format=%cs "$FROM")"
+# Direct commits not from a PR:
+git log "${FROM}..${TO}" --no-merges --pretty='%s (%h)'
 ```
 
-Resolve the previous release with `git describe --tags --abbrev=0`; if the repo has no tags yet, fall back to the root commit and say so. The PR title (which becomes the squash-commit subject) is the source of truth for each entry.
+The PR title (which becomes the squash-commit subject) is the source of truth for each entry.
 
 ### 3. Categorize into sections
 
@@ -89,11 +81,10 @@ Use `--version` for the heading (default `Unreleased`). Use today's date (`YYYY-
 
 ### 5. Write to the destination
 
-- **Changelog file (default):** prepend the new section directly under the top header / `Unreleased` marker, preserving the rest of the file. Create the file with a standard header if it does not exist.
-- **`--output=release`:** emit the section as a GitHub release body (e.g. for `gh release create`/`gh release edit`) rather than editing a file.
-- **`--output=-`:** print to stdout only; write nothing.
+repo-memory keeps **no `CHANGELOG.md` file** — it publishes notes only as **GitHub releases**, so the default destination is `release`:
 
-repo-memory keeps **no `CHANGELOG.md` file** — it publishes notes only as **GitHub releases**. Default `--output=release`: render the section as a GitHub release body (for `gh release create` / `gh release edit`) rather than editing any file.
+- **`--output=release` (default):** emit the section as a GitHub release body (e.g. for `gh release create` / `gh release edit`) rather than editing a file. There is no changelog file to write here.
+- **`--output=-`:** print to stdout only; write nothing.
 
 ### 6. Report
 
@@ -105,4 +96,4 @@ State the resolved range, the version/section written, the destination, and coun
 - **Idempotent on the file.** Re-running for the same version should replace that version's section, not append a duplicate.
 - **No attribution.** No AI/agent mentions in the changelog, commits, or release body — the entries describe the work, not who wrote them.
 
-<!-- skill-templates: changelog e4df909 2026-06-09 -->
+<!-- skill-templates: changelog 3254376 2026-06-09 -->
