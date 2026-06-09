@@ -2,6 +2,9 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { z } from 'zod';
 import { getFileSummary } from './tools/get-file-summary.js';
 import { getChangedFiles } from './tools/get-changed-files.js';
@@ -18,9 +21,15 @@ import { runGC } from './cache/gc.js';
 import { SessionManager } from './memory/session.js';
 import { loadConfig, type RepoMemoryConfig } from './config.js';
 
+// Read the version from package.json so the MCP serverInfo never drifts from the
+// published version. dist/server.js -> ../package.json; src/server.ts -> ../package.json.
+const pkg = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'),
+) as { version: string };
+
 const server = new McpServer({
   name: 'repo-memory',
-  version: '0.6.0',
+  version: pkg.version,
 });
 
 function registerTools(server: McpServer, config: RepoMemoryConfig): void {
