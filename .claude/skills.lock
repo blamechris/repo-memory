@@ -3,119 +3,148 @@
   "skills": {
     "agent-review": {
       "hash": "a10ef75",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "agentic-audit": {
       "hash": "3f616c3",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "autonomous-dev-flow": {
       "hash": "4a47e13",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "batch-merge": {
       "hash": "0a76684",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "bug-hunt": {
       "hash": "7f5fa28",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "catchup": {
       "hash": "3f7f775",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "changelog": {
       "hash": "3254376",
-      "installed": "2026-06-09"
+      "installed": "2026-06-09",
+      "profileHash": "274ba5b"
     },
     "check-pr": {
       "hash": "cc062bc",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "create-issue": {
       "hash": "12b011f",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "create-pr": {
       "hash": "12b011f",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "decompose-issue": {
       "hash": "b4268c2",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "deps": {
       "hash": "04d63e7",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "doctor": {
       "hash": "04d63e7",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "fix-ci": {
       "hash": "3768ea6",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "full-review": {
       "hash": "1e5962e",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "learn": {
       "hash": "df2de5e",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "merge": {
       "hash": "d34b05d",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "merge-gate": {
       "hash": "85269c8",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "parallel-dev": {
       "hash": "6a1a98b",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "project-audit": {
       "hash": "aae4d65",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "recon": {
       "hash": "7f5fa28",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "release": {
       "hash": "3254376",
-      "installed": "2026-06-09"
+      "installed": "2026-06-09",
+      "profileHash": "274ba5b"
     },
     "rollback": {
       "hash": "969295a",
-      "installed": "2026-06-09"
+      "installed": "2026-06-09",
+      "profileHash": "274ba5b"
     },
     "skill": {
       "hash": "18b9f3e",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "skill-profile": {
       "hash": "ecb5d01",
-      "installed": "2026-06-09"
+      "installed": "2026-06-09",
+      "profileHash": "274ba5b"
     },
     "smoke-test": {
       "hash": "21fa678",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "start-working": {
       "hash": "15d7b73",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "swarm-audit": {
       "hash": "c8b8477",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     },
     "tackle-issues": {
       "hash": "21fa678",
-      "installed": "2026-06-08"
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b"
     }
   }
 }
