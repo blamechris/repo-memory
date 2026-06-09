@@ -26,9 +26,10 @@ export function searchByPurpose(
   const effectiveLimit = limit ?? 20;
 
   // Optional scope: restrict the search to files at or under a directory/prefix.
-  // Normalized so "src/cache", "src/cache/", and "./src/cache" behave the same,
-  // and matched on a path boundary so "src/cache" excludes "src/cache-utils.ts".
-  const normalizedPrefix = pathPrefix?.replace(/^\.\//, '').replace(/\/+$/, '');
+  // Normalized so "src/cache", "src/cache/", "./src/cache", and "/src/cache"
+  // behave the same, and matched on a path boundary so "src/cache" excludes
+  // "src/cache-utils.ts". (Stored paths are POSIX-style and relative to root.)
+  const normalizedPrefix = pathPrefix?.trim().replace(/^(?:\.?\/)+/, '').replace(/\/+$/, '');
   const allEntries = store.getAllEntries();
   const entries = normalizedPrefix
     ? allEntries.filter(

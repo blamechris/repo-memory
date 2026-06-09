@@ -126,7 +126,7 @@ describe('searchByPurpose', () => {
   });
 
   it('scopes results to a pathPrefix directory', () => {
-    // "validate" matches files in both src/auth (validation.ts, middleware.ts) and elsewhere.
+    // "validate" matches files in src/auth (validation.ts, middleware.ts) — scope to that dir.
     const result = searchByPurpose(tempDir, 'validate', undefined, 'src/auth');
     expect(result.results.length).toBeGreaterThanOrEqual(1);
     expect(result.results.every(r => r.path.startsWith('src/auth/'))).toBe(true);
@@ -135,11 +135,13 @@ describe('searchByPurpose', () => {
     expect(result.totalCached).toBe(2);
   });
 
-  it('normalizes the pathPrefix (trailing slash and ./)', () => {
+  it('normalizes the pathPrefix (trailing slash, ./, and leading /)', () => {
     const a = searchByPurpose(tempDir, 'database', undefined, 'src/db/');
     const b = searchByPurpose(tempDir, 'database', undefined, './src/db');
+    const c = searchByPurpose(tempDir, 'database', undefined, '/src/db');
     expect(a.scope).toBe('src/db');
     expect(b.scope).toBe('src/db');
+    expect(c.scope).toBe('src/db');
     expect(a.results.every(r => r.path.startsWith('src/db/'))).toBe(true);
   });
 
