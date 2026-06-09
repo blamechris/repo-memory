@@ -13,21 +13,34 @@ export interface SearchByPurposeResult {
   query: string;
   results: SearchResult[];
   totalCached: number;
+  scope?: string; // present when results were restricted to a pathPrefix
 }
 
 export function searchByPurpose(
   projectRoot: string,
   query: string,
   limit?: number,
+  pathPrefix?: string,
 ): SearchByPurposeResult {
   const store = new CacheStore(projectRoot);
-  const allEntries = store.getAllEntries();
   const effectiveLimit = limit ?? 20;
+
+  // Optional scope: restrict the search to files at or under a directory/prefix.
+  // Normalized so "src/cache", "src/cache/", "./src/cache", and "/src/cache"
+  // behave the same, and matched on a path boundary so "src/cache" excludes
+  // "src/cache-utils.ts". (Stored paths are POSIX-style and relative to root.)
+  const normalizedPrefix = pathPrefix?.trim().replace(/^(?:\.?\/)+/, '').replace(/\/+$/, '');
+  const allEntries = store.getAllEntries();
+  const entries = normalizedPrefix
+    ? allEntries.filter(
+        (e) => e.path === normalizedPrefix || e.path.startsWith(`${normalizedPrefix}/`),
+      )
+    : allEntries;
 
   const queryTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
   const results: Array<SearchResult & { score: number }> = [];
 
-  for (const entry of allEntries) {
+  for (const entry of entries) {
     if (!entry.summary) continue;
 
     const matchedOn: string[] = [];
@@ -79,7 +92,7 @@ export function searchByPurpose(
   // Token estimate: approximate raw file tokens from lineCount (avg ~40 chars/line).
   const tracker = new TelemetryTracker(projectRoot);
   for (const result of matched) {
-    const entry = allEntries.find(e => e.path === result.path);
+    const entry = entries.find(e => e.path === result.path);
     // Approximate raw file tokens from lineCount (avg ~40 chars/line, ~4 chars/token)
     const estimatedRawTokens = entry?.summary ? entry.summary.lineCount * 10 : 0;
     tracker.trackEvent('summary_served', result.path, estimatedRawTokens);
@@ -88,6 +101,7 @@ export function searchByPurpose(
   return {
     query,
     results: matched.map(({ score: _score, ...rest }) => rest),
-    totalCached: allEntries.filter(e => e.summary).length,
+    totalCached: entries.filter(e => e.summary).length,
+    ...(normalizedPrefix ? { scope: normalizedPrefix } : {}),
   };
 }
