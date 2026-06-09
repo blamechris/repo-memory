@@ -124,4 +124,34 @@ describe('searchByPurpose', () => {
     // We only have 5 files, so all should be returned
     expect(result.results.length).toBeLessThanOrEqual(20);
   });
+
+  it('scopes results to a pathPrefix directory', () => {
+    // "validate" matches files in both src/auth (validation.ts, middleware.ts) and elsewhere.
+    const result = searchByPurpose(tempDir, 'validate', undefined, 'src/auth');
+    expect(result.results.length).toBeGreaterThanOrEqual(1);
+    expect(result.results.every(r => r.path.startsWith('src/auth/'))).toBe(true);
+    expect(result.scope).toBe('src/auth');
+    // totalCached reflects the scoped subset (auth has 2 files), not all 5.
+    expect(result.totalCached).toBe(2);
+  });
+
+  it('normalizes the pathPrefix (trailing slash and ./)', () => {
+    const a = searchByPurpose(tempDir, 'database', undefined, 'src/db/');
+    const b = searchByPurpose(tempDir, 'database', undefined, './src/db');
+    expect(a.scope).toBe('src/db');
+    expect(b.scope).toBe('src/db');
+    expect(a.results.every(r => r.path.startsWith('src/db/'))).toBe(true);
+  });
+
+  it('matches on a path boundary (prefix does not catch sibling names)', () => {
+    // "src/d" must NOT match "src/db/..." — only a full segment boundary counts.
+    const result = searchByPurpose(tempDir, 'database', undefined, 'src/d');
+    expect(result.results).toEqual([]);
+    expect(result.totalCached).toBe(0);
+  });
+
+  it('omits scope when no pathPrefix is given', () => {
+    const result = searchByPurpose(tempDir, 'database');
+    expect(result.scope).toBeUndefined();
+  });
 });
