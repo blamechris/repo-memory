@@ -55,7 +55,7 @@ describe('loadConfig', () => {
       JSON.stringify({ ignore: 'not-an-array' }),
     );
     const config = loadConfig(tempDir);
-    // Falls back to empty config on validation error
+    // The only key is invalid, so it's dropped and nothing valid remains.
     expect(config).toEqual({});
   });
 
@@ -136,6 +136,34 @@ describe('loadConfig', () => {
     writeFileSync(
       join(tempDir, '.repo-memory.json'),
       JSON.stringify({ tools: { summaries: true, unknown: true } }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.tools).toEqual({ summaries: true });
+  });
+
+  it('keeps valid keys when another top-level key is invalid', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ maxFiles: -1, ignore: ['*.log'], tools: { tasks: true } }),
+    );
+    const config = loadConfig(tempDir);
+    // maxFiles is dropped (invalid); the valid ignore + tools are still applied.
+    expect(config).toEqual({ ignore: ['*.log'], tools: { tasks: true } });
+  });
+
+  it('keeps valid gc subkeys and drops only the invalid one', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ gc: { cacheMaxAgeDays: 7, taskMaxAgeDays: 0 } }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.gc).toEqual({ cacheMaxAgeDays: 7 });
+  });
+
+  it('keeps valid tool groups and drops only the invalid one', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ tools: { summaries: true, tasks: 'no' } }),
     );
     const config = loadConfig(tempDir);
     expect(config.tools).toEqual({ summaries: true });
