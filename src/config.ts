@@ -22,6 +22,10 @@ export interface RepoMemoryConfig {
 
 const configCache = new Map<string, RepoMemoryConfig>();
 
+function warn(message: string): void {
+  process.stderr.write(`Warning: ${CONFIG_FILENAME}: ${message}\n`);
+}
+
 export function loadConfig(projectRoot: string): RepoMemoryConfig {
   const cached = configCache.get(projectRoot);
   if (cached) return cached;
@@ -32,12 +36,12 @@ export function loadConfig(projectRoot: string): RepoMemoryConfig {
   if (existsSync(configPath)) {
     try {
       const raw = readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      config = validateConfig(parsed);
+      config = validateConfig(JSON.parse(raw));
     } catch (err) {
-      process.stderr.write(
-        `Warning: failed to load ${CONFIG_FILENAME}: ${err instanceof Error ? err.message : String(err)}\n`,
-      );
+      // Reached only if the file can't be read (IO/permissions) or parsed —
+      // validateConfig never throws, it skips invalid keys. Either way, fall
+      // back to built-in defaults.
+      warn(`failed to load: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -45,59 +49,71 @@ export function loadConfig(projectRoot: string): RepoMemoryConfig {
   return config;
 }
 
+// Validate per key: an invalid key is skipped with a warning and the valid keys
+// are still applied, rather than discarding the whole config on one bad value.
+// (A non-object root, or a non-object gc/tools, drops just that scope.)
 function validateConfig(raw: unknown): RepoMemoryConfig {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error('Config must be a JSON object');
-  }
-
-  const obj = raw as Record<string, unknown>;
   const config: RepoMemoryConfig = {};
 
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    warn('must be a JSON object; using defaults');
+    return config;
+  }
+  const obj = raw as Record<string, unknown>;
+
   if ('ignore' in obj) {
-    if (!Array.isArray(obj.ignore) || !obj.ignore.every((v) => typeof v === 'string')) {
-      throw new Error('"ignore" must be an array of strings');
+    if (Array.isArray(obj.ignore) && obj.ignore.every((v) => typeof v === 'string')) {
+      config.ignore = obj.ignore as string[];
+    } else {
+      warn('"ignore" must be an array of strings; ignoring it');
     }
-    config.ignore = obj.ignore;
   }
 
   if ('maxFiles' in obj) {
-    if (typeof obj.maxFiles !== 'number' || obj.maxFiles < 1) {
-      throw new Error('"maxFiles" must be a positive number');
+    if (typeof obj.maxFiles === 'number' && obj.maxFiles >= 1) {
+      config.maxFiles = obj.maxFiles;
+    } else {
+      warn('"maxFiles" must be a positive number; ignoring it');
     }
-    config.maxFiles = obj.maxFiles;
   }
 
   if ('gc' in obj) {
-    if (typeof obj.gc !== 'object' || obj.gc === null || Array.isArray(obj.gc)) {
-      throw new Error('"gc" must be an object');
-    }
-    const gc = obj.gc as Record<string, unknown>;
-    config.gc = {};
-
-    for (const key of ['cacheMaxAgeDays', 'taskMaxAgeDays', 'telemetryMaxAgeDays'] as const) {
-      if (key in gc) {
-        if (typeof gc[key] !== 'number' || gc[key] < 1) {
-          throw new Error(`"gc.${key}" must be a positive number`);
+    if (typeof obj.gc === 'object' && obj.gc !== null && !Array.isArray(obj.gc)) {
+      const gc = obj.gc as Record<string, unknown>;
+      const out: NonNullable<RepoMemoryConfig['gc']> = {};
+      for (const key of ['cacheMaxAgeDays', 'taskMaxAgeDays', 'telemetryMaxAgeDays'] as const) {
+        if (key in gc) {
+          const value = gc[key];
+          if (typeof value === 'number' && value >= 1) {
+            out[key] = value;
+          } else {
+            warn(`"gc.${key}" must be a positive number; ignoring it`);
+          }
         }
-        config.gc[key] = gc[key];
       }
+      if (Object.keys(out).length > 0) config.gc = out;
+    } else {
+      warn('"gc" must be an object; ignoring it');
     }
   }
 
   if ('tools' in obj) {
-    if (typeof obj.tools !== 'object' || obj.tools === null || Array.isArray(obj.tools)) {
-      throw new Error('"tools" must be an object');
-    }
-    const tools = obj.tools as Record<string, unknown>;
-    config.tools = {};
-
-    for (const key of ['summaries', 'tasks', 'telemetry'] as const) {
-      if (key in tools) {
-        if (typeof tools[key] !== 'boolean') {
-          throw new Error(`"tools.${key}" must be a boolean`);
+    if (typeof obj.tools === 'object' && obj.tools !== null && !Array.isArray(obj.tools)) {
+      const tools = obj.tools as Record<string, unknown>;
+      const out: ToolGroupConfig = {};
+      for (const key of ['summaries', 'tasks', 'telemetry'] as const) {
+        if (key in tools) {
+          const value = tools[key];
+          if (typeof value === 'boolean') {
+            out[key] = value;
+          } else {
+            warn(`"tools.${key}" must be a boolean; ignoring it`);
+          }
         }
-        config.tools[key] = tools[key];
       }
+      if (Object.keys(out).length > 0) config.tools = out;
+    } else {
+      warn('"tools" must be an object; ignoring it');
     }
   }
 
