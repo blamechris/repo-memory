@@ -24,6 +24,7 @@
     "recon": { "hash": "7f5fa28", "installed": "2026-06-08" },
     "release": { "hash": "3254376", "installed": "2026-06-09" },
     "skill": { "hash": "18b9f3e", "installed": "2026-06-08" },
+    "skill-profile": { "hash": "ecb5d01", "installed": "2026-06-09" },
     "smoke-test": { "hash": "21fa678", "installed": "2026-06-08" },
     "start-working": { "hash": "15d7b73", "installed": "2026-06-08" },
     "swarm-audit": { "hash": "c8b8477", "installed": "2026-06-08" },
