@@ -168,4 +168,24 @@ describe('loadConfig', () => {
     const config = loadConfig(tempDir);
     expect(config.tools).toEqual({ summaries: true });
   });
+
+  it('warns on stderr when a key is skipped', () => {
+    const writes: string[] = [];
+    const original = process.stderr.write;
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      writeFileSync(
+        join(tempDir, '.repo-memory.json'),
+        JSON.stringify({ maxFiles: -1, ignore: ['*.log'] }),
+      );
+      const config = loadConfig(tempDir);
+      expect(config).toEqual({ ignore: ['*.log'] });
+    } finally {
+      process.stderr.write = original;
+    }
+    expect(writes.join('')).toMatch(/maxFiles/);
+  });
 });

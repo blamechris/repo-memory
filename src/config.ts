@@ -38,9 +38,10 @@ export function loadConfig(projectRoot: string): RepoMemoryConfig {
       const raw = readFileSync(configPath, 'utf-8');
       config = validateConfig(JSON.parse(raw));
     } catch (err) {
-      // Only unparseable JSON reaches here — validateConfig itself never throws,
-      // it skips invalid keys. A broken file falls back to built-in defaults.
-      warn(`failed to parse: ${err instanceof Error ? err.message : String(err)}`);
+      // Reached only if the file can't be read (IO/permissions) or parsed —
+      // validateConfig never throws, it skips invalid keys. Either way, fall
+      // back to built-in defaults.
+      warn(`failed to load: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
