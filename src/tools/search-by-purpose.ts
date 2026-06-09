@@ -1,5 +1,6 @@
 import { CacheStore } from '../cache/store.js';
 import { TelemetryTracker } from '../telemetry/tracker.js';
+import { toPosix } from '../utils/posix-path.js';
 
 export interface SearchResult {
   path: string;
@@ -26,15 +27,22 @@ export function searchByPurpose(
   const effectiveLimit = limit ?? 20;
 
   // Optional scope: restrict the search to files at or under a directory/prefix.
-  // Normalized so "src/cache", "src/cache/", "./src/cache", and "/src/cache"
-  // behave the same, and matched on a path boundary so "src/cache" excludes
-  // "src/cache-utils.ts". (Stored paths are POSIX-style and relative to root.)
-  const normalizedPrefix = pathPrefix?.trim().replace(/^(?:\.?\/)+/, '').replace(/\/+$/, '');
+  // Normalized so "src/cache", "src/cache/", "./src/cache", "/src/cache", and the
+  // Windows form "src\cache" behave the same, and matched on a path boundary so
+  // "src/cache" excludes "src/cache-utils.ts". (Stored paths are POSIX-style and
+  // relative to root.)
+  const normalizedPrefix = pathPrefix
+    ? toPosix(pathPrefix.trim()).replace(/^(?:\.?\/)+/, '').replace(/\/+$/, '')
+    : undefined;
   const allEntries = store.getAllEntries();
+  // Normalize the stored side too, so a forward-slash prefix still scopes paths
+  // that were cached on Windows (backslash separators) before posix-normalization
+  // at the indexing boundary existed.
   const entries = normalizedPrefix
-    ? allEntries.filter(
-        (e) => e.path === normalizedPrefix || e.path.startsWith(`${normalizedPrefix}/`),
-      )
+    ? allEntries.filter((e) => {
+        const p = toPosix(e.path);
+        return p === normalizedPrefix || p.startsWith(`${normalizedPrefix}/`);
+      })
     : allEntries;
 
   const queryTerms = query.toLowerCase().split(/\s+/).filter(Boolean);

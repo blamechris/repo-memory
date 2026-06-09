@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { searchByPurpose } from '../../src/tools/search-by-purpose.js';
+import { CacheStore } from '../../src/cache/store.js';
 
 describe('searchByPurpose', () => {
   let tempDir: string;
@@ -155,5 +156,30 @@ describe('searchByPurpose', () => {
   it('omits scope when no pathPrefix is given', () => {
     const result = searchByPurpose(tempDir, 'database');
     expect(result.scope).toBeUndefined();
+  });
+
+  it('matches Windows-style (backslash) stored paths against a forward-slash pathPrefix', () => {
+    // Simulate a cache populated on Windows, where path.relative() yields
+    // backslash separators, by seeding an entry directly. A forward-slash
+    // pathPrefix must still scope it.
+    const store = new CacheStore(tempDir);
+    store.setEntry('src\\win\\handler.ts', 'deadbeef', {
+      purpose: 'windows request handler',
+      exports: ['handleRequest'],
+      imports: [],
+      lineCount: 10,
+      topLevelDeclarations: ['handleRequest'],
+      confidence: 'high',
+    });
+
+    const result = searchByPurpose(tempDir, 'windows', undefined, 'src/win');
+    expect(result.scope).toBe('src/win');
+    expect(result.results.some(r => r.path === 'src\\win\\handler.ts')).toBe(true);
+  });
+
+  it('normalizes a Windows-style (backslash) pathPrefix to posix', () => {
+    const a = searchByPurpose(tempDir, 'database', undefined, 'src\\db');
+    expect(a.scope).toBe('src/db');
+    expect(a.results.every(r => r.path.startsWith('src/db/'))).toBe(true);
   });
 });
