@@ -101,4 +101,43 @@ describe('loadConfig', () => {
     const config = loadConfig(tempDir);
     expect(config.ignore).toEqual(['*.log']);
   });
+
+  it('loads tools config from config file', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ tools: { summaries: true, tasks: false } }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.tools).toEqual({ summaries: true, tasks: false });
+  });
+
+  it('defaults to no tools config when not specified', () => {
+    writeFileSync(join(tempDir, '.repo-memory.json'), JSON.stringify({ maxFiles: 100 }));
+    const config = loadConfig(tempDir);
+    expect(config.tools).toBeUndefined();
+  });
+
+  it('rejects invalid tools value (not object)', () => {
+    writeFileSync(join(tempDir, '.repo-memory.json'), JSON.stringify({ tools: true }));
+    const config = loadConfig(tempDir);
+    expect(config).toEqual({});
+  });
+
+  it('rejects invalid tools group value (not boolean)', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ tools: { summaries: 'yes' } }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config).toEqual({});
+  });
+
+  it('ignores unknown tool group keys', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ tools: { summaries: true, unknown: true } }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.tools).toEqual({ summaries: true });
+  });
 });

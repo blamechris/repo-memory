@@ -62,19 +62,38 @@ The savings compound fast. An agent exploring a project touches the same files 3
 
 ## Tools
 
+Tools are organized into **groups**. `navigation` and `summaries` are **on by default** — together they deliver the core "understand the repo without re-reading" loop. `tasks` and `telemetry` are **off by default** (niche/meta features; each MCP tool adds ~100 tokens/turn, so the default surface stays lean). Toggle any group in `.repo-memory.json` (see [Configuration](#configuration)).
+
+**Navigation** — always on:
+
+| Tool | Description |
+|------|-------------|
+| `get_project_map` | Structural overview of project |
+| `get_related_files` | Find related files ranked by relevance |
+| `get_dependency_graph` | File dependency relationships |
+| `get_changed_files` | Files changed since last check |
+
+**Summaries** — on by default (the core feature); disable with `"tools": { "summaries": false }`:
+
 | Tool | Description |
 |------|-------------|
 | `get_file_summary` | Cached file summary (exports, imports, purpose) |
 | `batch_file_summaries` | Get summaries for multiple files at once |
-| `get_changed_files` | Files changed since last check |
-| `get_project_map` | Structural overview of project |
 | `search_by_purpose` | Search files by purpose/exports keywords |
-| `get_related_files` | Find related files ranked by relevance |
-| `get_dependency_graph` | File dependency relationships |
-| `create_task` / `get_task_context` / `mark_explored` | Track investigation progress across turns |
-| `get_token_report` | Token usage and savings report |
 | `force_reread` | Force fresh summary generation |
 | `invalidate` | Clear cache entries |
+
+**Tasks** — off by default; enable with `"tools": { "tasks": true }`:
+
+| Tool | Description |
+|------|-------------|
+| `create_task` / `get_task_context` / `mark_explored` | Track investigation progress across turns |
+
+**Telemetry** — off by default; enable with `"tools": { "telemetry": true }`:
+
+| Tool | Description |
+|------|-------------|
+| `get_token_report` | Token usage and savings report |
 
 ## Token Savings Tracking
 
@@ -164,9 +183,15 @@ Create a `.repo-memory.json` in your project root to customize behavior:
   "maxFiles": 5000,
   "gc": {
     "cacheMaxAgeDays": 30
+  },
+  "tools": {
+    "tasks": true,
+    "telemetry": true
   }
 }
 ```
+
+The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable). An invalid `.repo-memory.json` is ignored in full (built-in defaults apply) with a warning on stderr, rather than partially applied.
 
 ## Language Support
 
