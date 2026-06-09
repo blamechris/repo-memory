@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Short-circuit token-expensive diagnostic reasoning when `gh pr merge` fails due to branch protection. The most common blocker is unresolved review threads, which **only a human can resolve** via GitHub UI. This pattern turns a multi-step investigation into a 2-line handoff.
+Short-circuit token-expensive diagnostic reasoning when `gh pr merge` fails due to branch protection. The most common blocker is unresolved review threads. When the workflow has permission, the installed skills (`/check-pr`, `/merge`, `/batch-merge`) resolve those threads automatically via the GraphQL `resolveReviewThread` mutation; this handoff pattern is the fallback for when automated resolution is unavailable or has already run and a human still needs to resolve remaining threads via the GitHub UI. This pattern turns a multi-step investigation into a 2-line handoff.
 
 ## The Problem
 
@@ -37,7 +37,7 @@ When `gh pr merge` fails with "base branch policy prohibits the merge":
 
 - **Set once, forget forever** — lives in CLAUDE.md, loaded every session
 - **Zero wasted tokens** — skips all diagnostic reasoning on first failure
-- **Human intervention point** — only humans can resolve threads via GitHub UI
+- **Human intervention point** — the fallback for threads the workflow cannot resolve automatically (no permission, or already attempted); a human resolves the remainder via the GitHub UI
 - **Graceful fallback** — second failure triggers real investigation
 
 ## Repos Using This Pattern

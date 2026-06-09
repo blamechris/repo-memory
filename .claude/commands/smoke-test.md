@@ -5,8 +5,8 @@ Run an automated smoke test of the repo-memory MCP server. repo-memory is a HEAD
 ## Arguments
 
 - `$ARGUMENTS` - Optional flags:
-  - `--keep-screenshots` — No effect (headless server emits no screenshots); accepted for compatibility
-  - If empty, runs the headless stdio handshake
+  - `--list-only` — Run the `initialize` handshake plus `tools/list` and print the registered tool names without further assertions
+  - If empty, runs the full headless stdio handshake and all checks
 
 ## Instructions
 
@@ -36,7 +36,9 @@ node dist/server.js </dev/null >/dev/null 2>&1; echo "exit: $?"
 
 ```bash
 # Send an MCP `initialize` request over stdio and assert serverInfo.name === "repo-memory",
-# then request tools/list. Pipes two JSON-RPC lines into the server's stdin and inspects stdout.
+# then request tools/list. Pipes three JSON-RPC messages (initialize, the
+# notifications/initialized notification, and tools/list) into the server's stdin
+# and inspects the response lines on stdout.
 node dist/server.js <<'JSONRPC' | node scripts/check-smoke.mjs
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.0.0"}}}
 {"jsonrpc":"2.0","method":"notifications/initialized"}
@@ -44,16 +46,18 @@ node dist/server.js <<'JSONRPC' | node scripts/check-smoke.mjs
 JSONRPC
 ```
 
-The test script should:
-- Spawn the running application (`node dist/server.js`) and write JSON-RPC over stdin
-- Perform the MCP `initialize` handshake and `tools/list` flow
-- Capture each JSON-RPC response line from stdout
+In the pipeline above, `node dist/server.js` is started by the shell and the
+heredoc feeds it stdin; `scripts/check-smoke.mjs` consumes the server's stdout.
+So the checker script should:
+- Read JSON-RPC response lines from stdin (the server's stdout, piped in)
+- Parse each line and match responses to request `id`s (the `initialize` result, then the `tools/list` result)
+- Assert the expected fields for each check
 - Output PASS/FAIL for each check
 - Exit 0 (all pass) or 1 (failures)
 
-### 3. Read Screenshots
+### 3. Inspect the JSON-RPC Responses
 
-This is a headless stdio server: there are no screenshots and no visual surface to inspect. Instead, read each captured JSON-RPC response line from stdout and verify it semantically:
+This is a headless stdio server: there is no visual surface to inspect, only the JSON-RPC stream. Read each captured JSON-RPC response line from stdout and verify it semantically:
 
 - Confirm the `initialize` result reports `serverInfo.name === "repo-memory"` and a `protocolVersion`
 - Confirm `tools/list` returns a non-empty `tools` array with the expected tool names (e.g. `get_project_map`, `get_file_summary`, `get_changed_files`)
@@ -68,25 +72,25 @@ Output a summary table:
 
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
-| 1 | App loads | PASS | HTTP 200, no console errors |
-| 2 | Feature X visible | PASS | — |
-| 3 | Feature Y works | FAIL | Element not found |
+| 1 | Process starts | PASS | `node dist/server.js` boots, no crash |
+| 2 | `initialize` handshake | PASS | `serverInfo.name === "repo-memory"` |
+| 3 | `tools/list` | FAIL | empty `tools` array |
 
-**Screenshots reviewed:** N
-**Visual issues found:** M (describe any issues)
-
-If the smoke test is currently scaffolding (no `scripts/check-smoke.mjs` yet), create it per the patterns below and add `dist/` is already gitignored — no extra cleanup needed.
+**JSON-RPC responses inspected:** N
+**Protocol issues found:** M (describe any `error` objects or missing fields)
 ```
+
+If the smoke test is currently scaffolding (no `scripts/check-smoke.mjs` yet), create the checker script per the patterns below. Run `mkdir -p scripts` first, since the repo has no `scripts/` directory yet. No extra cleanup is needed: `dist/` is already gitignored and the spawned server exits when stdin closes.
 
 ### 5. Cleanup
 
 ```bash
 # The spawned `node dist/server.js` exits when stdin closes, so there is no long-lived
-# process or screenshot directory to clean up. Nothing to remove.
+# process and no artifacts to clean up. Nothing to remove.
 true
 ```
 
-If the application was started by this skill (not already running), stop it.
+The server process terminates on its own when the heredoc/stdin closes, so there is nothing to stop.
 
 ## Writing the Smoke Test Script
 
@@ -99,7 +103,7 @@ If the test script doesn't exist yet, create it following these patterns:
  * Smoke Test — MCP stdio handshake verification for the repo-memory server.
  *
  * Prerequisites: server built to dist/server.js (npm run build).
- * Reads JSON-RPC response lines from the server's stdout (no screenshots — headless stdio).
+ * Reads JSON-RPC response lines from the server's stdout (headless stdio — no visual surface).
  */
 
 import { spawn } from 'node:child_process'
@@ -111,10 +115,9 @@ async function run() {
   // 3. Write the `notifications/initialized` notification, then `tools/list`
   // 4. Wait for the server to emit the matching JSON-RPC response lines
   // 5. Run checks — each one:
-  //    a. Parse the next JSON-RPC response line from stdout
-  //    b. (no screenshot — headless server)
-  //    c. Assert result fields (serverInfo.name === "repo-memory", tools[] non-empty)
-  //    d. Log PASS or FAIL
+  //    a. Parse the next JSON-RPC response line from stdout (match by request id)
+  //    b. Assert result fields (serverInfo.name === "repo-memory", tools[] non-empty)
+  //    c. Log PASS or FAIL
   // 6. Output summary
   // 7. Exit with appropriate code
 }
@@ -123,9 +126,9 @@ async function run() {
 ### Check Patterns
 
 Each check should:
-1. **Act** — Navigate, click, type
-2. **Screenshot** — Capture current state
-3. **Assert** — Verify expected elements/content
+1. **Send** — Write a JSON-RPC request line to the server's stdin
+2. **Receive** — Read the matching JSON-RPC response line from stdout (match by request `id`)
+3. **Assert** — Verify the expected `result` fields (no `error` object)
 4. **Report** — Log PASS/FAIL with details
 
 ```javascript
@@ -143,7 +146,7 @@ if (res?.result?.serverInfo?.name === 'repo-memory') {
 }
 ```
 
-### Selector Strategy
+### Assertion Strategy
 
 Prefer stable assertions in this order:
 1. JSON-RPC `result` fields by name (`serverInfo.name`, `protocolVersion`, `tools[].name`)
@@ -171,12 +174,12 @@ Organize checks into logical groups:
 
 ## Critical Rules
 
-1. **Never send real messages** — Smoke tests verify UI, not backend processing. Don't submit forms that trigger expensive operations.
-2. **Screenshots are temporary** — Always clean up unless `--keep-screenshots`. Add the directory to `.gitignore`.
-3. **Fail fast on no connection** — If the app isn't running or can't connect, report immediately instead of running checks that will all fail.
-4. **Stable selectors** — Use aria labels and roles, not brittle CSS class names that change with refactors.
-5. **Visual verification is the point** — The automated checks catch DOM presence. Reading screenshots catches visual regressions (z-index, color, spacing).
-6. **Idempotent** — Safe to run repeatedly. Don't create persistent state (sessions, data, etc.) that would affect the next run.
+1. **Side-effect free** — The smoke test only performs the read-only `initialize` and `tools/list` handshake. Never invoke tools that mutate the cache DB or touch the filesystem of the project under test.
+2. **No persistent artifacts** — The spawned server exits when stdin closes; there is nothing to clean up. Don't write logs, caches, or temp files that would survive the run.
+3. **Fail fast on a bad handshake** — If `initialize` returns an `error` or the server crashes on boot, report immediately instead of running checks that will all fail.
+4. **Stable assertions** — Assert on JSON-RPC `result` fields by name (`serverInfo.name`, `tools[].name`), not on raw stdout substrings that shift with formatting.
+5. **Reject non-JSON stdout** — A clean stdio MCP server emits only JSON-RPC lines on stdout. Any non-JSON line (stray log, debug print) is a failure: the protocol stream must stay parseable.
+6. **Idempotent** — Safe to run repeatedly. Each run spawns a fresh server instance and creates no persistent state that would affect the next run.
 
 ## Customization Notes
 
