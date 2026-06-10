@@ -7,7 +7,10 @@ import { scanProject } from '../../src/indexer/scanner.js';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { createPerfFixture } from '../benchmarks/perf-utils.js';
 
-describe('performance budgets', () => {
+// Budgets are calibrated on Linux/macOS; Windows CI runners miss them on
+// filesystem-heavy paths (observed ~3x). The budgets guard regressions on the
+// primary platform — correctness on Windows is covered by the rest of the suite.
+describe.skipIf(process.platform === 'win32')('performance budgets', () => {
   let tempDir: string;
 
   beforeEach(() => {

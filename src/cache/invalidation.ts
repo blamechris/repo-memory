@@ -1,6 +1,7 @@
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { hashFile } from './hash.js';
 import type { CacheStore } from './store.js';
+import { toPosix } from '../utils/posix-path.js';
 
 export class CacheInvalidator {
   private readonly projectRoot: string;
@@ -19,9 +20,12 @@ export class CacheInvalidator {
     absolutePath: string,
   ): Promise<{ valid: boolean; currentHash: string | null }> {
     const currentHash = await hashFile(absolutePath);
+    // Stored cache keys are POSIX-normalized project-relative paths; derive
+    // the key the same way on every platform (the old slice-and-strip-'/'
+    // left a leading backslash on Windows, so lookups always missed).
     const relativePath = absolutePath.startsWith(this.projectRoot)
-      ? absolutePath.slice(this.projectRoot.length).replace(/^\//, '')
-      : absolutePath;
+      ? toPosix(relative(this.projectRoot, absolutePath))
+      : toPosix(absolutePath);
 
     const entry = this.store.getEntry(relativePath);
 
