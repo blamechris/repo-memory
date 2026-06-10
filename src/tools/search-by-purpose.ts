@@ -29,34 +29,87 @@ interface Match {
   score: number;
 }
 
-/** Score a summary against the query terms; null when nothing matched. */
-function scoreSummary(summary: FileSummary, queryTerms: string[]): Match | null {
+/**
+ * Lowercase word tokens of an identifier or free-text field: splits camelCase
+ * and PascalCase boundaries, snake_case, kebab-case, dots, and path
+ * separators. "CacheStore" -> ["cache","store"]; "get_file_summary" ->
+ * ["get","file","summary"].
+ */
+function tokenize(text: string): string[] {
+  return text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** Terms shorter than this only count on a whole-token match. */
+const MIN_SUBSTRING_TERM = 3;
+
+/**
+ * Match quality of one query term against one field, tiered by specificity:
+ * whole token (1.0) > token prefix (0.75) > bare substring (0.5). Short terms
+ * must match a whole token — "id" landing inside "validation" is noise, but
+ * "id" as an identifier word (findUserById) is a real hit.
+ */
+function termQuality(term: string, tokens: string[], raw: string): number {
+  if (tokens.includes(term)) return 1;
+  if (term.length < MIN_SUBSTRING_TERM) return 0;
+  if (tokens.some((t) => t.startsWith(term))) return 0.75;
+  if (raw.includes(term)) return 0.5;
+  return 0;
+}
+
+/**
+ * Score a cached entry against the query terms; null when nothing matched.
+ * Field weights: purpose 3 > exports 2 > declarations 1 = path 1. Each term
+ * contributes its match quality x the field weight, so a whole-word purpose
+ * hit outranks any pile of incidental substrings. Path segments count as a
+ * field of their own (sans extension) so directory and file names carry the
+ * concept signal they naturally encode — src/telemetry/tracker.ts should
+ * match "telemetry" even when its summary text doesn't say the word.
+ */
+function scoreEntry(path: string, summary: FileSummary, queryTerms: string[]): Match | null {
+  const fields = [
+    {
+      name: 'purpose',
+      weight: 3,
+      tokens: tokenize(summary.purpose),
+      raw: summary.purpose.toLowerCase(),
+    },
+    {
+      name: 'exports',
+      weight: 2,
+      tokens: summary.exports.flatMap(tokenize),
+      raw: summary.exports.join(' ').toLowerCase(),
+    },
+    {
+      name: 'declarations',
+      weight: 1,
+      tokens: summary.topLevelDeclarations.flatMap(tokenize),
+      raw: summary.topLevelDeclarations.join(' ').toLowerCase(),
+    },
+    {
+      name: 'path',
+      weight: 1,
+      tokens: tokenize(path.replace(/\.[a-z0-9]+$/i, '')),
+      raw: path.toLowerCase(),
+    },
+  ];
+
   const matchedOn: string[] = [];
   let score = 0;
-
-  const purpose = summary.purpose.toLowerCase();
-  const purposeMatches = queryTerms.filter((term) => purpose.includes(term));
-  if (purposeMatches.length > 0) {
-    matchedOn.push('purpose');
-    score += purposeMatches.length * 3; // purpose matches weighted highest
+  for (const field of fields) {
+    let fieldScore = 0;
+    for (const term of queryTerms) {
+      fieldScore += termQuality(term, field.tokens, field.raw) * field.weight;
+    }
+    if (fieldScore > 0) {
+      matchedOn.push(field.name);
+      score += fieldScore;
+    }
   }
-
-  const exportsLower = summary.exports.map((e) => e.toLowerCase());
-  const exportMatches = queryTerms.filter((term) =>
-    exportsLower.some((exp) => exp.includes(term)),
-  );
-  if (exportMatches.length > 0) {
-    matchedOn.push('exports');
-    score += exportMatches.length * 2;
-  }
-
-  const declsLower = summary.topLevelDeclarations.map((d) => d.toLowerCase());
-  const declMatches = queryTerms.filter((term) => declsLower.some((decl) => decl.includes(term)));
-  if (declMatches.length > 0) {
-    matchedOn.push('declarations');
-    score += declMatches.length;
-  }
-
   return matchedOn.length > 0 ? { matchedOn, score } : null;
 }
 
@@ -93,7 +146,7 @@ async function validateCandidate(
 
   const summary = await summarizeForProject(projectRoot, candidate.entry.path, contents);
   store.setEntry(candidate.entry.path, currentHash, summary);
-  const match = scoreSummary(summary, queryTerms);
+  const match = scoreEntry(candidate.entry.path, summary, queryTerms);
   if (!match) return null;
   return { entry: candidate.entry, summary, matchedOn: match.matchedOn, score: match.score };
 }
@@ -134,7 +187,7 @@ export async function searchByPurpose(
 
   for (const entry of entries) {
     if (!entry.summary) continue;
-    const match = scoreSummary(entry.summary, queryTerms);
+    const match = scoreEntry(entry.path, entry.summary, queryTerms);
     if (match) {
       candidates.push({ entry, summary: entry.summary, ...match });
     }

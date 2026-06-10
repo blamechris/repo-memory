@@ -56,7 +56,7 @@ Your agent wants to understand `src/server.ts`. Normally it reads the whole file
 
 **First access (cache miss):**
 1. Agent calls `get_file_summary("src/server.ts")`
-2. repo-memory reads the file, SHA-256 hashes it, extracts a summary via regex (exports, imports, purpose, declarations, line count)
+2. repo-memory reads the file, SHA-256 hashes it, extracts a summary (exports, imports, purpose, declarations, line count) via the configured summarizer (AST by default)
 3. Stores the hash + summary in SQLite (`.repo-memory/cache.db` in your project)
 4. Returns the compact summary
 5. No savings yet — we had to read the file anyway
@@ -222,7 +222,7 @@ Config validation is per-key: an invalid value is skipped with a warning on stde
 
 ## Language Support
 
-Summaries are extracted via regex analysis, or from tree-sitter parse trees when `"summarizer": "ast"` is set. All language families below have AST support in `ast` mode, which adds semantic purpose lines derived from doc comments; regex stays as the universal fallback for other languages and unparseable files. Supported languages:
+Summaries are extracted from tree-sitter parse trees by default, or via regex analysis when `"summarizer": "regex"` is set. All language families below have AST support, which adds semantic purpose lines derived from doc comments; regex stays as the universal fallback for other languages and unparseable files. Supported languages:
 - **TypeScript / JavaScript** — exports, imports, declarations, purpose classification; AST mode adds JSDoc-derived purpose lines
 - **Python** — functions, classes (incl. `async def`), `__all__`, `from`/`import` statements; AST mode adds docstring-derived purpose lines
 - **Go** — exported names (uppercase), imports, type/func/var/const declarations; AST mode adds doc-comment purpose lines and grouped `var (…)` / `const (…)` support
