@@ -61,6 +61,81 @@ Returns a cached summary of a file. If the file has not changed since last read,
 
 ---
 
+### `batch_file_summaries`
+
+Returns summaries for multiple files in one call. Each file goes through the same cache-or-summarize flow as `get_file_summary`.
+
+**Input:**
+```json
+{
+  "paths": ["src/server.ts", "src/cache/store.ts", "src/missing.ts"]
+}
+```
+
+**Output:**
+```json
+{
+  "results": [
+    { "path": "src/server.ts", "fromCache": true, "summary": { "...": "..." } },
+    { "path": "src/cache/store.ts", "fromCache": false, "summary": { "...": "..." } }
+  ],
+  "totalFiles": 3,
+  "cacheHits": 1,
+  "cacheMisses": 1,
+  "errors": [
+    { "path": "src/missing.ts", "error": "File not found" }
+  ]
+}
+```
+
+**Notes:**
+- Each entry in `results` has the same shape as a `get_file_summary` response.
+- A failing path (missing file, invalid path) lands in `errors` without failing the batch.
+
+---
+
+### `search_by_purpose`
+
+Searches cached file summaries by keyword. Matches against each file's purpose, exports, and top-level declarations. Only files that have been summarized before (via `get_file_summary`, `batch_file_summaries`, or `force_reread`) are searchable.
+
+**Input:**
+```json
+{
+  "query": "cache invalidation",
+  "limit": 10,
+  "pathPrefix": "src/cache"
+}
+```
+
+**Output:**
+```json
+{
+  "query": "cache invalidation",
+  "results": [
+    {
+      "path": "src/cache/invalidation.ts",
+      "purpose": "source",
+      "matchedOn": ["exports", "declarations"],
+      "exports": ["CacheInvalidator"],
+      "confidence": "high"
+    }
+  ],
+  "totalCached": 12,
+  "scope": "src/cache"
+}
+```
+
+**Parameters:**
+- `query` (required): Space-separated keywords. Purpose matches are weighted highest, then exports, then declarations.
+- `limit` (optional): Max results. Default: 20.
+- `pathPrefix` (optional): Restrict results to files at or under this path (e.g. `"src/cache"`). Matched on a path boundary, so `"src/cache"` excludes `src/cache-utils.ts`.
+
+**Notes:**
+- `totalCached` is the number of summarized files in scope (after `pathPrefix` filtering), not the number of matches.
+- `scope` is present only when `pathPrefix` was given, echoing the normalized prefix.
+
+---
+
 ### `get_changed_files`
 
 Returns files that have changed, been added, or been deleted since the last check.
@@ -263,6 +338,43 @@ Returns dependency graph information. Can query a specific file's dependencies/d
 - `path` (optional): File to query. Omit for full graph summary.
 - `direction` (optional): `"dependencies"`, `"dependents"`, or `"both"` (default: `"both"`).
 - `depth` (optional): Max traversal depth for transitive queries.
+- `symbol` (optional): Filter edges by import specifier (e.g. `"UserService"`), returning only edges that import that symbol.
+
+---
+
+### `get_related_files`
+
+Returns files related to a given file, ranked by relevance. Candidates come from direct imports/importers, transitive dependencies (depth 2), and same-directory files, then get scored by ranking signals (dependency proximity, recency, file type, task context, change frequency).
+
+**Input:**
+```json
+{
+  "path": "src/cache/store.ts",
+  "limit": 5,
+  "task_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Output:**
+```json
+{
+  "path": "src/cache/store.ts",
+  "relatedFiles": [
+    { "path": "src/persistence/db.ts", "score": 0.82, "relationship": "imports" },
+    { "path": "src/cache/invalidation.ts", "score": 0.74, "relationship": "imported-by" },
+    { "path": "src/cache/gc.ts", "score": 0.61, "relationship": "same-directory" },
+    { "path": "src/types.ts", "score": 0.55, "relationship": "transitive-dependency" }
+  ]
+}
+```
+
+**Parameters:**
+- `path` (required): File to find relations for.
+- `limit` (optional): Max results. Default: 10.
+- `task_id` (optional): A task whose explored/flagged files should influence ranking (unexplored files rank higher; flagged files get a boost).
+
+**Notes:**
+- `relationship` is one of `"imports"`, `"imported-by"`, `"transitive-dependency"`, or `"same-directory"`.
 
 ---
 
@@ -418,3 +530,4 @@ Returns aggregated token usage telemetry showing cache efficiency and token savi
 - `period` (optional): `"session"`, `"all"`, or `"last_n_hours"`. Default: `"all"`.
 - `hours` (optional): Number of hours to look back (only for `last_n_hours`).
 - `session_id` (optional): Session ID (only for `session` period).
+- `include_diagnostics` (optional): Include cache health diagnostics (entry counts, stale entries, database size) in the report.
