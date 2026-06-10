@@ -12,9 +12,7 @@ export interface DirectoryNode {
   files: Array<{
     name: string;
     purpose: string;
-    confidence: string;
     size: number;
-    lastModified: number;
   }>;
   children: DirectoryNode[];
   fileCount: number;
@@ -31,7 +29,6 @@ interface FileSummaryEntry {
   relativePath: string;
   summary: FileSummary;
   size: number;
-  lastModified: number;
 }
 
 async function getSummaries(
@@ -47,9 +44,9 @@ async function getSummaries(
     if (cached?.summary) {
       try {
         const stats = await stat(absolutePath);
-        entries.push({ relativePath, summary: cached.summary, size: stats.size, lastModified: stats.mtimeMs });
+        entries.push({ relativePath, summary: cached.summary, size: stats.size });
       } catch {
-        entries.push({ relativePath, summary: cached.summary, size: 0, lastModified: 0 });
+        entries.push({ relativePath, summary: cached.summary, size: 0 });
       }
       continue;
     }
@@ -65,7 +62,7 @@ async function getSummaries(
     const hash = hashContents(contents);
     cache.setEntry(relativePath, hash, summary);
     const stats = await stat(absolutePath);
-    entries.push({ relativePath, summary, size: stats.size, lastModified: stats.mtimeMs });
+    entries.push({ relativePath, summary, size: stats.size });
   }
 
   return entries;
@@ -113,17 +110,19 @@ function buildTree(
   }
 
   for (const entry of entries) {
+    const name = basename(entry.relativePath);
+    // Zero-byte .gitkeep placeholders carry no information; omit them from the tree.
+    if (name === '.gitkeep' && entry.size === 0) continue;
+
     const dirPath = dirname(entry.relativePath);
     const depth = dirPath === '.' ? 0 : dirPath.split('/').length;
     const dir = getOrCreateDir(dirPath, depth);
     if (!dir) continue;
 
     dir.files.push({
-      name: basename(entry.relativePath),
+      name,
       purpose: entry.summary.purpose,
-      confidence: entry.summary.confidence,
       size: entry.size,
-      lastModified: entry.lastModified,
     });
   }
 

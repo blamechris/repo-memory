@@ -194,15 +194,15 @@ Returns a structural overview of the project including directory tree, entry poi
     "name": "repo-memory",
     "path": ".",
     "files": [
-      { "name": "server.ts", "purpose": "entry point" }
+      { "name": "server.ts", "purpose": "entry point", "size": 4096 }
     ],
     "children": [
       {
         "name": "cache",
         "path": "src/cache",
         "files": [
-          { "name": "hash.ts", "purpose": "utility" },
-          { "name": "store.ts", "purpose": "data access" }
+          { "name": "hash.ts", "purpose": "utility", "size": 512 },
+          { "name": "store.ts", "purpose": "data access", "size": 2048 }
         ],
         "children": [],
         "fileCount": 5
@@ -223,6 +223,9 @@ Returns a structural overview of the project including directory tree, entry poi
 **Notes:**
 - `depth` limits how deep the directory tree is traversed. Omit for full depth.
 - `entryPoints` lists files whose summarized purpose is `"entry point"`.
+- File entries are kept compact (`name`, `purpose`, `size`). Per-file confidence is available
+  via `get_file_summary`; recency is covered by `get_changed_files`.
+- Zero-byte `.gitkeep` placeholder files are omitted from the tree.
 
 ---
 
