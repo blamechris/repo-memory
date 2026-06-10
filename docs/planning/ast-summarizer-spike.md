@@ -2,7 +2,7 @@
 
 **Status:** complete — recommendation at the bottom.
 **Scope:** TypeScript/JavaScript (`.ts/.tsx/.js/.jsx/.mjs/.cjs`). Python/Go/Rust stay on the regex summarizer.
-**Code:** `src/indexer/ast-summarizer.ts` (engine), `src/indexer/summarize.ts` (config dispatch + cache generation), `summarizer: 'regex' | 'ast'` in `.repo-memory.json` (default `'regex'`).
+**Code:** `src/indexer/ast-summarizer.ts` (engine), `src/indexer/summarize.ts` (config dispatch + cache generation), `summarizer: 'regex' | 'ast'` in `.repo-memory.json` (default `'ast'` since 0.12.0; was `'regex'` during the opt-in phase).
 
 ## Hypothesis
 
@@ -142,8 +142,11 @@ Suggested rollout:
    devDependency when running from `src/` (dev/vitest). Cuts the runtime
    footprint from ~55 MB to ~11 MB unpacked; the tarball grows from ~72 kB to
    ~573 kB compressed (~5.7 MB unpacked).
-3. Flip the default to `ast` for TS/JS after a release of soak time; the
-   generation tag handles the cache migration automatically.
+3. **Done.** Flip the default to `ast`; the generation tag handles the cache
+   migration automatically (config-less projects lazily regenerate on first
+   access). Validated on real codebases first: ~86% of 860 cached Kotlin files
+   in a production Android app received semantic AST purposes, zero parse-crash
+   incidents across ~3,000 files in four projects.
 4. **Done.** Extend to Python/Go/Rust: per-language extraction visitors in
    `ast-summarizer.ts` (exports, imports, declarations, doc-comment purpose
    lines), with the three grammar wasms vendored alongside the TS/JS ones.

@@ -12,7 +12,7 @@ export interface ToolGroupConfig {
 export interface RepoMemoryConfig {
   ignore?: string[];
   maxFiles?: number;
-  /** Summary engine for TS/JS files: 'regex' (default) or 'ast' (tree-sitter). */
+  /** Summary engine: 'ast' (default, tree-sitter) or 'regex'. */
   summarizer?: 'regex' | 'ast';
   gc?: {
     cacheMaxAgeDays?: number;

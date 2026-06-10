@@ -30,7 +30,7 @@ const META_KEY = 'summarizer_generation';
 const generationChecked = new Map<string, string>();
 
 export function getSummarizerMode(projectRoot: string): SummarizerMode {
-  return loadConfig(projectRoot).summarizer ?? 'regex';
+  return loadConfig(projectRoot).summarizer ?? 'ast';
 }
 
 /** Generate a summary using the summarizer configured for this project. */

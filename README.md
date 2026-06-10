@@ -207,7 +207,7 @@ Create a `.repo-memory.json` in your project root to customize behavior:
 }
 ```
 
-`summarizer` selects the summary engine: `"regex"` (default) or `"ast"`. AST mode parses supported languages (see [Language Support](#language-support)) with tree-sitter, producing accurate exports/declarations and a semantic `purpose` line that names the dominant symbols (e.g. `class CacheStore (9 methods)` instead of `source`) — which is what `search_by_purpose` matches against. Other languages, unsupported extensions, and files with parse errors fall back to the regex summarizer automatically. Switching modes regenerates summaries lazily on next access.
+`summarizer` selects the summary engine: `"ast"` (default) or `"regex"`. AST mode parses supported languages (see [Language Support](#language-support)) with tree-sitter, producing accurate exports/declarations and a semantic `purpose` line that names the dominant symbols (e.g. `class CacheStore (9 methods)` instead of `source`) — which is what `search_by_purpose` matches against. Other languages, unsupported extensions, and files with parse errors fall back to the regex summarizer automatically. Switching modes regenerates summaries lazily on next access.
 
 The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable).
 
