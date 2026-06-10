@@ -205,7 +205,7 @@ Create a `.repo-memory.json` in your project root to customize behavior:
 }
 ```
 
-`summarizer` selects the summary engine: `"regex"` (default) or `"ast"`. AST mode parses TypeScript/JavaScript files (`.ts/.tsx/.js/.jsx/.mjs/.cjs`) with tree-sitter, producing accurate exports/declarations and a semantic `purpose` line that names the dominant symbols (e.g. `class CacheStore (9 methods)` instead of `source`) — which is what `search_by_purpose` matches against. TS/JS only for now; other languages, unsupported extensions, and files with parse errors fall back to the regex summarizer automatically. Switching modes regenerates summaries lazily on next access.
+`summarizer` selects the summary engine: `"regex"` (default) or `"ast"`. AST mode parses supported languages (see [Language Support](#language-support)) with tree-sitter, producing accurate exports/declarations and a semantic `purpose` line that names the dominant symbols (e.g. `class CacheStore (9 methods)` instead of `source`) — which is what `search_by_purpose` matches against. Other languages, unsupported extensions, and files with parse errors fall back to the regex summarizer automatically. Switching modes regenerates summaries lazily on next access.
 
 The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable).
 
@@ -220,11 +220,15 @@ Config validation is per-key: an invalid value is skipped with a warning on stde
 
 ## Language Support
 
-Summaries are extracted via regex analysis, or from tree-sitter parse trees when `"summarizer": "ast"` is set. All four language families below have AST support in `ast` mode, which adds semantic purpose lines derived from doc comments; regex stays as the universal fallback for other languages and unparseable files. Supported languages:
+Summaries are extracted via regex analysis, or from tree-sitter parse trees when `"summarizer": "ast"` is set. All language families below have AST support in `ast` mode, which adds semantic purpose lines derived from doc comments; regex stays as the universal fallback for other languages and unparseable files. Supported languages:
 - **TypeScript / JavaScript** — exports, imports, declarations, purpose classification; AST mode adds JSDoc-derived purpose lines
 - **Python** — functions, classes (incl. `async def`), `__all__`, `from`/`import` statements; AST mode adds docstring-derived purpose lines
 - **Go** — exported names (uppercase), imports, type/func/var/const declarations; AST mode adds doc-comment purpose lines and grouped `var (…)` / `const (…)` support
 - **Rust** — `pub` items, `use`/`mod` statements, structs/enums/traits/impls; AST mode adds `///` doc-comment purpose lines and `pub use` re-exports
+- **Kotlin** (`.kt/.kts`) — AST mode only: public top-level `fun`/`class`/`object`/`interface`/`enum class`/`data class`/`val`/`var`/`typealias` (excluding `private`/`internal`), `import` paths, KDoc-derived purpose lines; regex mode gives only basic filename classification
+- **Java** — AST mode only: public types and the public methods/fields of the public type, `import` statements (incl. `static` and wildcard), Javadoc-derived purpose lines; regex mode gives only basic filename classification
+
+The dependency graph (`get_related_files`, `get_dependency_graph`) extracts imports for all six language families regardless of summarizer mode.
 
 Config files (JSON, YAML, TOML) and other file types get basic classification.
 

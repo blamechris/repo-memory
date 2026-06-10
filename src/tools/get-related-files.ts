@@ -37,7 +37,10 @@ export async function getRelatedFiles(
       !file.endsWith('.cjs') &&
       !file.endsWith('.py') &&
       !file.endsWith('.go') &&
-      !file.endsWith('.rs')
+      !file.endsWith('.rs') &&
+      !file.endsWith('.kt') &&
+      !file.endsWith('.kts') &&
+      !file.endsWith('.java')
     ) {
       continue;
     }
