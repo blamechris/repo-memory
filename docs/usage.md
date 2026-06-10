@@ -58,6 +58,7 @@ Returns a cached summary of a file. If the file has not changed since last read,
 **Notes:**
 - `suggestFullRead` is `true` when the summary confidence is `"low"`, indicating the agent should read the full file for accuracy.
 - `cacheAge` is in seconds since last check, or `null` if no prior cache entry exists.
+- Summary quality depends on the `summarizer` setting in `.repo-memory.json`: `"regex"` (default) or `"ast"`. AST mode (TypeScript/JavaScript only for now) yields more accurate exports and a semantic `purpose` line naming the dominant symbols; files that fail to parse fall back to the regex engine automatically. See the README's Configuration section.
 
 ---
 

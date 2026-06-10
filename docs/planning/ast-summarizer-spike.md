@@ -133,10 +133,15 @@ can never do worse than today.
 
 Suggested rollout:
 
-1. Ship behind `summarizer: 'ast'` (this spike) — opt-in, default `regex`.
-2. Vendor the three grammar `.wasm` files into `dist/` at build time; demote
-   `tree-sitter-wasms` to a dev dependency (cuts the runtime footprint from
-   ~55 MB to ~11 MB unpacked).
+1. **Done.** Ship behind `summarizer: 'ast'` (this spike) — opt-in, default
+   `regex`.
+2. **Done.** Vendor the three grammar `.wasm` files into `dist/` at build time
+   (`scripts/copy-grammars.mjs`, wired into `npm run build`); demote
+   `tree-sitter-wasms` to a dev dependency. Grammar resolution prefers the
+   vendored `dist/grammars/` copies and falls back to the `tree-sitter-wasms`
+   devDependency when running from `src/` (dev/vitest). Cuts the runtime
+   footprint from ~55 MB to ~11 MB unpacked; the tarball grows from ~72 kB to
+   ~573 kB compressed (~5.7 MB unpacked).
 3. Flip the default to `ast` for TS/JS after a release of soak time; the
    generation tag handles the cache migration automatically.
 4. Extend to Python/Go/Rust: grammars are already in `tree-sitter-wasms`; each

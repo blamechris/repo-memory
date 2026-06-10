@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-grammars.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
@@ -51,13 +51,13 @@
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
+    "tree-sitter-wasms": "^0.1.13",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "better-sqlite3": "^12.10.0",
-    "tree-sitter-wasms": "^0.1.13",
     "web-tree-sitter": "^0.25.10",
     "zod": "^4.3.6"
   }

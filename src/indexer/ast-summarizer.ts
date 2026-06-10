@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Parser, Language, type Node } from 'web-tree-sitter';
 import { summarizeFile } from './summarizer.js';
 import type { FileSummary } from '../types.js';
@@ -32,6 +35,20 @@ const EXT_TO_GRAMMAR: Record<string, GrammarName> = {
 const MAX_PURPOSE_LENGTH = 160;
 
 const require = createRequire(import.meta.url);
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Locate a grammar's .wasm file. Vendored grammars in `dist/grammars/`
+ * (copied by `scripts/copy-grammars.mjs` at build time) take precedence, so
+ * the published package works without `tree-sitter-wasms` installed. In dev
+ * and under vitest the code runs from `src/`, where no vendored copy exists,
+ * so we fall back to resolving the `tree-sitter-wasms` devDependency.
+ */
+function resolveGrammarWasm(grammar: GrammarName): string {
+  const vendored = join(moduleDir, '..', 'grammars', `tree-sitter-${grammar}.wasm`);
+  if (existsSync(vendored)) return vendored;
+  return require.resolve(`tree-sitter-wasms/out/tree-sitter-${grammar}.wasm`);
+}
 
 let initPromise: Promise<void> | null = null;
 let runtimeBroken = false;
@@ -61,8 +78,7 @@ async function getParser(grammar: GrammarName): Promise<Parser> {
 
   let languagePromise = languageCache.get(grammar);
   if (!languagePromise) {
-    const wasmPath = require.resolve(`tree-sitter-wasms/out/tree-sitter-${grammar}.wasm`);
-    languagePromise = Language.load(wasmPath);
+    languagePromise = Language.load(resolveGrammarWasm(grammar));
     languageCache.set(grammar, languagePromise);
   }
 
