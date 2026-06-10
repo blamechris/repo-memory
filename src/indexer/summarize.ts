@@ -18,8 +18,12 @@ export type SummarizerMode = 'regex' | 'ast';
  * Generation 2: the AST summarizer gained Python/Go/Rust support, so summaries
  * for those languages cached under ast mode (which were regex-produced
  * fallbacks at generation 1) must lazily regenerate.
+ *
+ * Generation 3: the AST summarizer gained Kotlin/Java support, so summaries
+ * for those languages cached under ast mode (regex-produced generic
+ * classifications at earlier generations) must lazily regenerate.
  */
-const SUMMARIZER_GENERATION = 2;
+const SUMMARIZER_GENERATION = 3;
 
 const META_KEY = 'summarizer_generation';
 
@@ -57,9 +61,10 @@ export function ensureSummaryGeneration(projectRoot: string): void {
   const stored = store.getMeta(META_KEY);
   if (stored !== tag) {
     // Regex output is unchanged since generation 1, so summaries produced by
-    // regex generation 1 — including pre-marker databases, which carried no
-    // tag — are still valid under regex generation 2 and only need re-tagging.
-    const stillValid = tag === 'regex:2' && (stored === null || stored === 'regex:1');
+    // any earlier regex generation — including pre-marker databases, which
+    // carried no tag — are still valid under regex generation 3 and only need
+    // re-tagging.
+    const stillValid = tag === 'regex:3' && (stored === null || /^regex:[12]$/.test(stored));
     if (!stillValid) {
       store.clearAllSummaries();
     }

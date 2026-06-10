@@ -151,6 +151,18 @@ Suggested rollout:
    ast-mode caches for these languages regenerate lazily.
 5. Fix the `async` export bug in the regex summarizer independently — it
    benefits the fallback path and non-TS languages' sibling patterns.
+6. **Done.** Extend to Kotlin (`.kt/.kts`) and Java: per-language extraction
+   visitors (public-API exports with `private`/`internal` filtering for
+   Kotlin and `public`-member filtering for Java, dotted import paths,
+   KDoc/Javadoc purpose lines), grammar wasms vendored (8 total in
+   `dist/grammars/`), summarizer generation bumped to 3. Unlike the earlier
+   languages, the regex summarizer has no Kotlin/Java extraction, so AST mode
+   is the only real engine for them — the fallback path yields generic
+   filename-based classification only. Simple regex import extraction for
+   Kotlin/Java was added to `imports.ts` so the dependency graph covers them
+   in both modes. Known grammar quirk: `tree-sitter-kotlin` rejects
+   single-line class bodies (`class C { fun f() {} }`), which triggers the
+   regex fallback for such files.
 
 Caveats:
 

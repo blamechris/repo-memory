@@ -7,8 +7,8 @@ import { summarizeFile } from './summarizer.js';
 import type { FileSummary } from '../types.js';
 
 /**
- * AST-based summarizer for TypeScript/JavaScript, Python, Go and Rust using
- * web-tree-sitter (WASM).
+ * AST-based summarizer for TypeScript/JavaScript, Python, Go, Rust, Kotlin
+ * and Java using web-tree-sitter (WASM).
  *
  * Same contract as `summarizeFile` in summarizer.ts, but exports/imports/
  * declarations come from a real parse tree instead of line-anchored regexes,
@@ -20,7 +20,15 @@ import type { FileSummary } from '../types.js';
  * summarizer, so this is a strict superset in coverage.
  */
 
-type GrammarName = 'typescript' | 'tsx' | 'javascript' | 'python' | 'go' | 'rust';
+type GrammarName =
+  | 'typescript'
+  | 'tsx'
+  | 'javascript'
+  | 'python'
+  | 'go'
+  | 'rust'
+  | 'kotlin'
+  | 'java';
 
 const EXT_TO_GRAMMAR: Record<string, GrammarName> = {
   '.ts': 'typescript',
@@ -35,6 +43,9 @@ const EXT_TO_GRAMMAR: Record<string, GrammarName> = {
   '.py': 'python',
   '.go': 'go',
   '.rs': 'rust',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.java': 'java',
 };
 
 const MAX_PURPOSE_LENGTH = 160;
@@ -837,6 +848,296 @@ function extractRust(root: Node): ExtractionResult {
   return dedupeResult(out);
 }
 
+// ---------------------------------------------------------------------------
+// Kotlin extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * True unless the declaration carries a `private`/`internal`/`protected`
+ * visibility modifier (`public` is the Kotlin default).
+ */
+function ktIsPublic(node: Node): boolean {
+  const mods = node.namedChildren.find((c) => c?.type === 'modifiers');
+  for (const m of mods?.namedChildren ?? []) {
+    if (m?.type === 'visibility_modifier' && m.text !== 'public') return false;
+  }
+  return true;
+}
+
+/** The Kotlin grammar exposes keywords (`interface`, `enum`, …) as anonymous tokens. */
+function ktHasToken(node: Node, token: string): boolean {
+  return node.children.some((c) => c !== null && c.type === token);
+}
+
+function ktHasClassModifier(node: Node, modifier: string): boolean {
+  const mods = node.namedChildren.find((c) => c?.type === 'modifiers');
+  return (mods?.namedChildren ?? []).some(
+    (m) => m !== null && m.type === 'class_modifier' && m.text === modifier,
+  );
+}
+
+/**
+ * KDoc block immediately above `node`. The Kotlin grammar attaches the
+ * comment preceding the first declaration after the imports as the trailing
+ * descendant of the import list, so that path is checked too.
+ */
+function ktPrecedingDoc(node: Node): string | null {
+  let prev = node.previousNamedSibling;
+  if (prev && (prev.type === 'import_list' || prev.type === 'package_header')) {
+    let tail: Node = prev;
+    while (tail.lastNamedChild) tail = tail.lastNamedChild;
+    prev = tail;
+  }
+  if (prev && prev.type === 'multiline_comment' && prev.text.startsWith('/**')) {
+    return commentFirstLine(prev.text);
+  }
+  return null;
+}
+
+/** Method count of a class/object body, including companion-object functions. */
+function ktCountMethods(body: Node | null | undefined): number {
+  let count = 0;
+  for (const child of body?.namedChildren ?? []) {
+    if (!child) continue;
+    if (child.type === 'function_declaration') count++;
+    else if (child.type === 'companion_object') {
+      count += ktCountMethods(child.namedChildren.find((c) => c?.type === 'class_body'));
+    }
+  }
+  return count;
+}
+
+function extractKotlin(root: Node): ExtractionResult {
+  const out = emptyResult();
+
+  let seenCode = false;
+  for (const child of root.namedChildren) {
+    if (!child) continue;
+    switch (child.type) {
+      case 'multiline_comment':
+        if (!seenCode && out.fileDoc === null && child.text.startsWith('/**')) {
+          out.fileDoc = commentFirstLine(child.text);
+        }
+        continue;
+      case 'line_comment':
+        continue;
+      case 'package_header':
+        break;
+      case 'import_list': {
+        for (const header of child.namedChildren) {
+          if (header?.type !== 'import_header') continue;
+          // `identifier` is the dotted path; a trailing `.*` (wildcard_import)
+          // and `as` aliases sit outside it, so they are stripped for free.
+          const path = header.namedChildren.find((c) => c?.type === 'identifier');
+          if (path) out.imports.push(path.text.replace(/\s/g, ''));
+        }
+        break;
+      }
+      case 'class_declaration': {
+        const name = child.namedChildren.find((c) => c?.type === 'type_identifier')?.text;
+        if (!name) break;
+        const pub = ktIsPublic(child);
+        const doc = ktPrecedingDoc(child);
+        const body = child.namedChildren.find((c) => c?.type === 'class_body');
+        if (ktHasToken(child, 'interface')) {
+          out.topLevelDeclarations.push(`interface ${name}`);
+          out.classes.push({
+            name,
+            kind: 'interface',
+            methodCount: ktCountMethods(body),
+            doc,
+            exported: pub,
+          });
+        } else if (ktHasToken(child, 'enum')) {
+          out.topLevelDeclarations.push(`enum class ${name}`);
+          out.typeNames.push(name);
+        } else {
+          const kind = ktHasClassModifier(child, 'data') ? 'data class' : 'class';
+          out.topLevelDeclarations.push(`${kind} ${name}`);
+          out.classes.push({ name, kind, methodCount: ktCountMethods(body), doc, exported: pub });
+        }
+        if (pub) out.exports.push(name);
+        break;
+      }
+      case 'object_declaration': {
+        const name = child.namedChildren.find((c) => c?.type === 'type_identifier')?.text;
+        if (name) {
+          const pub = ktIsPublic(child);
+          const body = child.namedChildren.find((c) => c?.type === 'class_body');
+          out.topLevelDeclarations.push(`object ${name}`);
+          out.classes.push({
+            name,
+            kind: 'object',
+            methodCount: ktCountMethods(body),
+            doc: ktPrecedingDoc(child),
+            exported: pub,
+          });
+          if (pub) out.exports.push(name);
+        }
+        break;
+      }
+      case 'function_declaration': {
+        const name = child.namedChildren.find((c) => c?.type === 'simple_identifier')?.text;
+        if (name) {
+          const pub = ktIsPublic(child);
+          out.topLevelDeclarations.push(`fun ${name}`);
+          out.functions.push({ name, doc: ktPrecedingDoc(child), exported: pub });
+          if (pub) out.exports.push(name);
+        }
+        break;
+      }
+      case 'property_declaration': {
+        const kind =
+          child.namedChildren.find((c) => c?.type === 'binding_pattern_kind')?.text ?? 'val';
+        const decl = child.namedChildren.find((c) => c?.type === 'variable_declaration');
+        const name = decl?.namedChildren.find((c) => c?.type === 'simple_identifier')?.text;
+        if (name) {
+          out.topLevelDeclarations.push(`${kind} ${name}`);
+          if (kind === 'val') out.constNames.push(name);
+          if (ktIsPublic(child)) out.exports.push(name);
+        }
+        break;
+      }
+      case 'type_alias': {
+        const name = child.namedChildren.find((c) => c?.type === 'type_identifier')?.text;
+        if (name) {
+          out.topLevelDeclarations.push(`typealias ${name}`);
+          out.typeNames.push(name);
+          if (ktIsPublic(child)) out.exports.push(name);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    seenCode = true;
+  }
+
+  return dedupeResult(out);
+}
+
+// ---------------------------------------------------------------------------
+// Java extraction
+// ---------------------------------------------------------------------------
+
+/** Javadoc block immediately preceding `node`. */
+function javaPrecedingDoc(node: Node): string | null {
+  const prev = node.previousNamedSibling;
+  if (prev && prev.type === 'block_comment' && prev.text.startsWith('/**')) {
+    return commentFirstLine(prev.text);
+  }
+  return null;
+}
+
+/** Java modifiers (`public`, `static`, …) are anonymous tokens under `modifiers`. */
+function javaHasModifier(node: Node, modifier: string): boolean {
+  const mods = node.namedChildren.find((c) => c?.type === 'modifiers');
+  return (mods?.children ?? []).some((c) => c !== null && c.type === modifier);
+}
+
+/**
+ * Collect the public members of a top-level type into `out.exports` (when the
+ * type itself is public) and return its method count. Interface members are
+ * implicitly public. A `static main` method is recorded as a function so the
+ * purpose generator can mark the file as an entry point.
+ */
+function javaCollectMembers(
+  typeNode: Node,
+  kind: string,
+  typePublic: boolean,
+  out: ExtractionResult,
+): number {
+  const body = typeNode.childForFieldName('body');
+  let methods = 0;
+  for (const member of body?.namedChildren ?? []) {
+    if (!member) continue;
+    if (member.type === 'method_declaration') {
+      methods++;
+      const name = member.childForFieldName('name')?.text;
+      if (!name) continue;
+      const memberPublic = kind === 'interface' || javaHasModifier(member, 'public');
+      if (name === 'main' && javaHasModifier(member, 'static')) {
+        out.functions.push({ name, doc: null, exported: memberPublic });
+      }
+      if (typePublic && memberPublic) out.exports.push(name);
+    } else if (member.type === 'field_declaration') {
+      if (!typePublic) continue;
+      if (kind !== 'interface' && !javaHasModifier(member, 'public')) continue;
+      for (const decl of member.namedChildren) {
+        if (decl?.type !== 'variable_declarator') continue;
+        const name = decl.childForFieldName('name')?.text;
+        if (!name) continue;
+        out.exports.push(name);
+        if (/^[A-Z0-9_]+$/.test(name)) out.constNames.push(name);
+      }
+    }
+  }
+  return methods;
+}
+
+function extractJava(root: Node): ExtractionResult {
+  const out = emptyResult();
+
+  let seenCode = false;
+  for (const child of root.namedChildren) {
+    if (!child) continue;
+    switch (child.type) {
+      case 'block_comment':
+        if (!seenCode && out.fileDoc === null && child.text.startsWith('/**')) {
+          out.fileDoc = commentFirstLine(child.text);
+        }
+        continue;
+      case 'line_comment':
+        continue;
+      case 'package_declaration':
+        break;
+      case 'import_declaration': {
+        // The dotted path; a trailing `.*` is a separate `asterisk` node, so
+        // wildcard imports already arrive stripped.
+        const path = child.namedChildren.find(
+          (c) => c?.type === 'scoped_identifier' || c?.type === 'identifier',
+        );
+        if (path) out.imports.push(path.text.replace(/\s/g, ''));
+        break;
+      }
+      case 'class_declaration':
+      case 'interface_declaration':
+      case 'record_declaration': {
+        const name = child.childForFieldName('name')?.text;
+        if (!name) break;
+        const kind =
+          child.type === 'class_declaration'
+            ? 'class'
+            : child.type === 'interface_declaration'
+              ? 'interface'
+              : 'record';
+        const pub = javaHasModifier(child, 'public');
+        out.topLevelDeclarations.push(`${kind} ${name}`);
+        const methodCount = javaCollectMembers(child, kind, pub, out);
+        out.classes.push({ name, kind, methodCount, doc: javaPrecedingDoc(child), exported: pub });
+        if (pub) out.exports.push(name);
+        break;
+      }
+      case 'enum_declaration':
+      case 'annotation_type_declaration': {
+        const name = child.childForFieldName('name')?.text;
+        if (name) {
+          const kind = child.type === 'enum_declaration' ? 'enum' : 'annotation';
+          out.topLevelDeclarations.push(`${kind} ${name}`);
+          out.typeNames.push(name);
+          if (javaHasModifier(child, 'public')) out.exports.push(name);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    seenCode = true;
+  }
+
+  return dedupeResult(out);
+}
+
 function extract(root: Node, grammar: GrammarName): ExtractionResult {
   switch (grammar) {
     case 'python':
@@ -845,6 +1146,10 @@ function extract(root: Node, grammar: GrammarName): ExtractionResult {
       return extractGo(root);
     case 'rust':
       return extractRust(root);
+    case 'kotlin':
+      return extractKotlin(root);
+    case 'java':
+      return extractJava(root);
     default:
       return extractTsJs(root);
   }
@@ -884,6 +1189,18 @@ function fileCategory(filePath: string, contents: string): string | null {
       return 'entry point';
     }
     if (basename === 'build.rs') return 'config';
+    return null;
+  }
+
+  if (ext === '.kt' || ext === '.kts') {
+    if (/Test\.kts?$/.test(basename) || inTestsDir || dir.includes('/androidTest/')) return 'test';
+    if (basename.endsWith('.gradle.kts')) return 'config';
+    if (basename === 'Main.kt') return 'entry point';
+    return null;
+  }
+  if (ext === '.java') {
+    if (/Tests?\.java$/.test(basename) || inTestsDir) return 'test';
+    if (basename === 'Main.java') return 'entry point';
     return null;
   }
 
@@ -958,9 +1275,9 @@ function buildPurpose(filePath: string, contents: string, info: ExtractionResult
 // ---------------------------------------------------------------------------
 
 /**
- * Summarize a TS/JS, Python, Go or Rust file from its syntax tree. Falls back
- * to the regex summarizer for unsupported extensions, empty files, parse
- * errors, or when the WASM runtime cannot be loaded.
+ * Summarize a TS/JS, Python, Go, Rust, Kotlin or Java file from its syntax
+ * tree. Falls back to the regex summarizer for unsupported extensions, empty
+ * files, parse errors, or when the WASM runtime cannot be loaded.
  */
 export async function summarizeFileAst(filePath: string, contents: string): Promise<FileSummary> {
   const grammar = EXT_TO_GRAMMAR[getExtension(filePath)];

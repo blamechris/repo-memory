@@ -447,6 +447,90 @@ export function extractRustImports(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Kotlin / Java parsers
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Strip C-style comments and string literals (shared by Kotlin and Java) so
+ * import regexes don't match inside them. Preserves line structure.
+ */
+function stripCStyleNonCode(contents: string): string {
+  let result = contents;
+
+  // Remove block comments (incl. KDoc/Javadoc)
+  result = result.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+
+  // Remove triple-quoted (Kotlin raw) strings, then regular strings
+  result = result.replace(/"""[\s\S]*?"""/g, (m) => m.replace(/[^\n]/g, ' '));
+  result = result.replace(/"(?:[^"\\\n]|\\.)*"/g, (m) => ' '.repeat(m.length));
+
+  // Remove line comments
+  result = result.replace(/\/\/.*/g, (m) => ' '.repeat(m.length));
+
+  return result;
+}
+
+export function extractKotlinImports(
+  filePath: string,
+  contents: string,
+  _projectRoot: string,
+): ImportRef[] {
+  const results: ImportRef[] = [];
+  const source = filePath;
+  const cleaned = stripCStyleNonCode(contents);
+
+  // import a.b.C / import a.b.* / import a.b.C as D (optional semicolon)
+  const importRe = /^[ \t]*import\s+([\w.]+?)(\.\*)?(?:\s+as\s+(\w+))?\s*;?\s*$/gm;
+  let match: RegExpExecArray | null;
+  while ((match = importRe.exec(cleaned)) !== null) {
+    results.push({
+      source,
+      target: match[1].replace(/\./g, '/'),
+      specifiers: match[2] ? ['*'] : match[3] ? [match[3]] : [],
+      type: 'static',
+    });
+  }
+
+  return results;
+}
+
+export function extractJavaImports(
+  filePath: string,
+  contents: string,
+  _projectRoot: string,
+): ImportRef[] {
+  const results: ImportRef[] = [];
+  const source = filePath;
+  const cleaned = stripCStyleNonCode(contents);
+
+  // import a.b.C; / import a.b.*; / import static a.b.Type.member;
+  const importRe = /^[ \t]*import\s+(static\s+)?([\w.]+?)(\.\*)?\s*;/gm;
+  let match: RegExpExecArray | null;
+  while ((match = importRe.exec(cleaned)) !== null) {
+    const isStatic = Boolean(match[1]);
+    const isWildcard = Boolean(match[3]);
+    let path = match[2];
+    let specifiers: string[] = isWildcard ? ['*'] : [];
+    if (isStatic && !isWildcard) {
+      // `import static a.b.Type.member` — the file-level target is the type.
+      const lastDot = path.lastIndexOf('.');
+      if (lastDot !== -1) {
+        specifiers = [path.slice(lastDot + 1)];
+        path = path.slice(0, lastDot);
+      }
+    }
+    results.push({
+      source,
+      target: path.replace(/\./g, '/'),
+      specifiers,
+      type: 'static',
+    });
+  }
+
+  return results;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Dispatcher
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -470,6 +554,11 @@ export function extractImports(
       return extractGoImports(filePath, contents, projectRoot);
     case '.rs':
       return extractRustImports(filePath, contents, projectRoot);
+    case '.kt':
+    case '.kts':
+      return extractKotlinImports(filePath, contents, projectRoot);
+    case '.java':
+      return extractJavaImports(filePath, contents, projectRoot);
     default:
       return extractJsTsImports(filePath, contents, projectRoot);
   }
