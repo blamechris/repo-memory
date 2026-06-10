@@ -4,6 +4,8 @@ import {
   computeRecency,
   computeDependencyProximity,
   computeTaskContextRelevance,
+  computeRelationshipScore,
+  computeCentrality,
   rankFiles,
   DEFAULT_WEIGHTS,
 } from '../../src/cache/ranking.js';
@@ -161,9 +163,53 @@ describe('computeDependencyProximity', () => {
     expect(score).toBe(0);
   });
 
-  it('should return 0 with no explored files', () => {
+  it('should return 0 with no anchor files', () => {
     const score = computeDependencyProximity('A', [], graph);
     expect(score).toBe(0);
+  });
+});
+
+describe('computeRelationshipScore', () => {
+  it('should score direct relationships highest', () => {
+    expect(computeRelationshipScore('imports')).toBe(1.0);
+    expect(computeRelationshipScore('imported-by')).toBe(1.0);
+  });
+
+  it('should order direct > transitive > same-directory', () => {
+    expect(computeRelationshipScore('imports')).toBeGreaterThan(
+      computeRelationshipScore('transitive-dependency'),
+    );
+    expect(computeRelationshipScore('transitive-dependency')).toBeGreaterThan(
+      computeRelationshipScore('same-directory'),
+    );
+  });
+
+  it('should return 0 for missing or unknown relationships', () => {
+    expect(computeRelationshipScore(undefined)).toBe(0);
+    expect(computeRelationshipScore('something-else')).toBe(0);
+  });
+});
+
+describe('computeCentrality', () => {
+  it('should return 1.0 for the most connected candidate', () => {
+    expect(computeCentrality(10, 10)).toBe(1.0);
+  });
+
+  it('should return 0 for unconnected files or empty graphs', () => {
+    expect(computeCentrality(0, 10)).toBe(0);
+    expect(computeCentrality(5, 0)).toBe(0);
+  });
+
+  it('should compress the range via log scaling', () => {
+    // A 1-edge leaf vs a 50-edge hub: linear would be 0.02, log keeps it
+    // meaningfully above zero so the signal is a tiebreaker, not a cliff.
+    const leaf = computeCentrality(1, 50);
+    expect(leaf).toBeGreaterThan(0.15);
+    expect(leaf).toBeLessThan(0.5);
+  });
+
+  it('should be monotonic in degree', () => {
+    expect(computeCentrality(5, 10)).toBeGreaterThan(computeCentrality(2, 10));
   });
 });
 
@@ -257,11 +303,12 @@ describe('rankFiles', () => {
     const ranked = rankFiles(files, {
       projectRoot: '/project',
       weights: {
+        relationship: 0,
         dependencyProximity: 0,
         recency: 0,
         fileTypeRelevance: 1.0,
         taskContextRelevance: 0,
-        changeFrequency: 0,
+        centrality: 0,
       },
     });
 
@@ -275,11 +322,12 @@ describe('rankFiles', () => {
     const contextOnly = rankFiles(files, {
       projectRoot: '/project',
       weights: {
+        relationship: 0,
         dependencyProximity: 0,
         recency: 0,
         fileTypeRelevance: 0,
         taskContextRelevance: 1.0,
-        changeFrequency: 0,
+        centrality: 0,
       },
       flaggedFiles: ['tests/unit/hash.test.ts'],
     });
@@ -312,23 +360,158 @@ describe('rankFiles', () => {
 
     for (const r of ranked) {
       expect(r.signals).toBeDefined();
+      expect(typeof r.signals.relationship).toBe('number');
       expect(typeof r.signals.dependencyProximity).toBe('number');
       expect(typeof r.signals.recency).toBe('number');
       expect(typeof r.signals.fileTypeRelevance).toBe('number');
       expect(typeof r.signals.taskContextRelevance).toBe('number');
-      expect(typeof r.signals.changeFrequency).toBe('number');
+      expect(typeof r.signals.centrality).toBe('number');
     }
+  });
+
+  it('should rank direct > two-hop >= same-directory from a query file (no task)', () => {
+    // A is the query file. B imports A directly, D is two hops away
+    // (A -> mid -> D), C is a same-directory bystander with no edges.
+    const graph = createMockGraph([
+      ['src/b.ts', 'src/a.ts'],
+      ['src/a.ts', 'src/mid.ts'],
+      ['src/mid.ts', 'src/deep/d.ts'],
+    ]);
+    const relationships = new Map<string, string>([
+      ['src/b.ts', 'imported-by'],
+      ['src/mid.ts', 'imports'],
+      ['src/deep/d.ts', 'transitive-dependency'],
+      ['src/c.ts', 'same-directory'],
+    ]);
+
+    const ranked = rankFiles(['src/c.ts', 'src/deep/d.ts', 'src/b.ts', 'src/mid.ts'], {
+      projectRoot: '/project',
+      graph,
+      queryFile: 'src/a.ts',
+      relationships,
+    });
+
+    const indexOf = (path: string) => ranked.findIndex((r) => r.path === path);
+    const score = (path: string) => ranked[indexOf(path)].score;
+
+    // Direct relationship beats the two-hop file, which beats (or ties) the
+    // same-directory bystander.
+    expect(score('src/b.ts')).toBeGreaterThan(score('src/deep/d.ts'));
+    expect(score('src/deep/d.ts')).toBeGreaterThanOrEqual(score('src/c.ts'));
+  });
+
+  it('should use the query file as a proximity anchor without explored files', () => {
+    const graph = createMockGraph([
+      ['src/a.ts', 'src/b.ts'],
+      ['src/b.ts', 'src/c.ts'],
+    ]);
+
+    const ranked = rankFiles(['src/b.ts', 'src/c.ts'], {
+      projectRoot: '/project',
+      graph,
+      queryFile: 'src/a.ts',
+    });
+
+    const b = ranked.find((r) => r.path === 'src/b.ts')!;
+    const c = ranked.find((r) => r.path === 'src/c.ts')!;
+    expect(b.signals.dependencyProximity).toBe(1.0); // direct neighbor of query
+    expect(c.signals.dependencyProximity).toBe(0.5); // two hops from query
+  });
+
+  it('should produce non-identical scores in the default no-task path', () => {
+    // Regression: scores used to collapse to a constant (0.325 for every
+    // source file) because no live signal differentiated candidates.
+    const graph = createMockGraph([
+      ['src/b.ts', 'src/a.ts'],
+      ['src/a.ts', 'src/mid.ts'],
+      ['src/mid.ts', 'src/deep/d.ts'],
+    ]);
+    const relationships = new Map<string, string>([
+      ['src/b.ts', 'imported-by'],
+      ['src/mid.ts', 'imports'],
+      ['src/deep/d.ts', 'transitive-dependency'],
+      ['src/c.ts', 'same-directory'],
+    ]);
+
+    const ranked = rankFiles(['src/c.ts', 'src/deep/d.ts', 'src/b.ts', 'src/mid.ts'], {
+      projectRoot: '/project',
+      graph,
+      queryFile: 'src/a.ts',
+      relationships,
+    });
+
+    const distinctScores = new Set(ranked.map((r) => r.score));
+    expect(distinctScores.size).toBeGreaterThan(1);
+  });
+
+  it('should be deterministic: same inputs produce the same order and scores', () => {
+    const graph = createMockGraph([
+      ['src/b.ts', 'src/a.ts'],
+      ['src/a.ts', 'src/mid.ts'],
+      ['src/mid.ts', 'src/deep/d.ts'],
+    ]);
+    const relationships = new Map<string, string>([
+      ['src/b.ts', 'imported-by'],
+      ['src/mid.ts', 'imports'],
+      ['src/deep/d.ts', 'transitive-dependency'],
+      ['src/c.ts', 'same-directory'],
+    ]);
+    const files = ['src/c.ts', 'src/deep/d.ts', 'src/b.ts', 'src/mid.ts'];
+    const options = {
+      projectRoot: '/project',
+      graph,
+      queryFile: 'src/a.ts',
+      relationships,
+    };
+
+    const first = rankFiles(files, options);
+    const second = rankFiles(files, options);
+
+    expect(second.map((r) => r.path)).toEqual(first.map((r) => r.path));
+    expect(second.map((r) => r.score)).toEqual(first.map((r) => r.score));
+  });
+
+  it('should let centrality break ties between hub and leaf candidates', () => {
+    // x and y have identical relationship/proximity to the query, but x is a
+    // hub (3 extra edges) while y is a leaf.
+    const graph = createMockGraph([
+      ['src/q.ts', 'src/x.ts'],
+      ['src/q.ts', 'src/y.ts'],
+      ['src/p1.ts', 'src/x.ts'],
+      ['src/p2.ts', 'src/x.ts'],
+      ['src/p3.ts', 'src/x.ts'],
+    ]);
+    const relationships = new Map<string, string>([
+      ['src/x.ts', 'imports'],
+      ['src/y.ts', 'imports'],
+    ]);
+
+    const ranked = rankFiles(['src/y.ts', 'src/x.ts'], {
+      projectRoot: '/project',
+      graph,
+      queryFile: 'src/q.ts',
+      relationships,
+    });
+
+    expect(ranked[0].path).toBe('src/x.ts');
+    expect(ranked[0].signals.centrality).toBeGreaterThan(ranked[1].signals.centrality);
   });
 });
 
 describe('DEFAULT_WEIGHTS', () => {
   it('should sum to 1.0', () => {
     const sum =
+      DEFAULT_WEIGHTS.relationship +
       DEFAULT_WEIGHTS.dependencyProximity +
       DEFAULT_WEIGHTS.recency +
       DEFAULT_WEIGHTS.fileTypeRelevance +
       DEFAULT_WEIGHTS.taskContextRelevance +
-      DEFAULT_WEIGHTS.changeFrequency;
+      DEFAULT_WEIGHTS.centrality;
     expect(sum).toBeCloseTo(1.0, 5);
+  });
+
+  it('should weight relationship and proximity above the centrality tiebreaker', () => {
+    expect(DEFAULT_WEIGHTS.relationship).toBeGreaterThan(DEFAULT_WEIGHTS.centrality);
+    expect(DEFAULT_WEIGHTS.dependencyProximity).toBeGreaterThan(DEFAULT_WEIGHTS.centrality);
   });
 });

@@ -3,6 +3,7 @@ import { loadFreshGraph } from '../graph/refresh.js';
 import { scanProject } from '../indexer/scanner.js';
 import { validatePath } from '../utils/validate-path.js';
 import { rankFiles } from '../cache/ranking.js';
+import { CacheStore } from '../cache/store.js';
 import { getTaskContext, type TaskContextResult } from '../tools/task-context.js';
 
 export interface RelatedFilesResult {
@@ -86,13 +87,18 @@ export async function getRelatedFiles(
     }
   }
 
-  // Rank candidates
+  // Rank candidates. The query file anchors dependency proximity, the
+  // classified relationships feed the relationship signal, and the cache
+  // store activates real recency data.
   const candidateArray = [...candidates];
   const ranked = rankFiles(candidateArray, {
     projectRoot,
     exploredFiles,
     flaggedFiles,
     graph,
+    cacheStore: new CacheStore(projectRoot),
+    queryFile: validated,
+    relationships: relationshipMap,
     limit,
   });
 

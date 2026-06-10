@@ -3,19 +3,21 @@ import type { DependencyGraph } from '../graph/dependency-graph.js';
 import type { CacheStore } from './store.js';
 
 export interface RankingSignals {
+  relationship: number;         // 0-1, how the candidate relates to the query file
   dependencyProximity: number;  // 0-1, how close in dependency graph
   recency: number;              // 0-1, how recently accessed/modified
   fileTypeRelevance: number;    // 0-1, source > config > test
   taskContextRelevance: number; // 0-1, related to task's explored set
-  changeFrequency: number;      // 0-1, how often the file changes
+  centrality: number;           // 0-1, degree centrality (hub files score higher)
 }
 
 export interface RankingWeights {
+  relationship: number;
   dependencyProximity: number;
   recency: number;
   fileTypeRelevance: number;
   taskContextRelevance: number;
-  changeFrequency: number;
+  centrality: number;
 }
 
 export interface RankedFile {
@@ -31,15 +33,58 @@ export interface RankingOptions {
   flaggedFiles?: string[];
   graph?: DependencyGraph;
   cacheStore?: CacheStore;
+  /**
+   * The file the caller asked about. Used as a proximity anchor so
+   * dependencyProximity works even without task-explored files.
+   */
+  queryFile?: string;
+  /**
+   * Pre-classified relationship of each candidate to the query file
+   * (e.g. 'imports', 'imported-by', 'transitive-dependency', 'same-directory').
+   * Candidates absent from the map get a relationship score of 0.
+   */
+  relationships?: ReadonlyMap<string, string>;
   limit?: number;
 }
 
+/**
+ * Default signal weights (sum to 1.0 so composite scores stay in [0, 1]).
+ *
+ * Rationale:
+ * - relationship (0.30): the strongest evidence available — *why* the
+ *   candidate is in the result set. Direct imports/dependents beat
+ *   transitive links beat same-directory bystanders.
+ * - dependencyProximity (0.25): hop distance in the import graph from the
+ *   query file (and from task-explored files when a task is active).
+ *   Reinforces relationship and differentiates within the transitive bucket.
+ * - recency (0.15): files indexed/seen recently in this session are more
+ *   likely part of the current working set (4-hour half-life decay).
+ * - taskContextRelevance (0.15): directory adjacency to the active task's
+ *   explored/flagged files; constant when no task is active.
+ * - fileTypeRelevance (0.10): mild prior for source over config over tests.
+ * - centrality (0.05): log-scaled degree centrality — a deliberate
+ *   tiebreaker so hub files edge out leaf files when structural signals
+ *   tie, without importance ever outranking a direct relationship.
+ */
 export const DEFAULT_WEIGHTS: RankingWeights = {
-  dependencyProximity: 0.3,
-  recency: 0.2,
-  fileTypeRelevance: 0.15,
-  taskContextRelevance: 0.25,
-  changeFrequency: 0.1,
+  relationship: 0.3,
+  dependencyProximity: 0.25,
+  recency: 0.15,
+  fileTypeRelevance: 0.1,
+  taskContextRelevance: 0.15,
+  centrality: 0.05,
+};
+
+/**
+ * Relationship-type ordering: direct edges (imports/imported-by) are the
+ * strongest relevance evidence, transitive links weaker, directory
+ * neighbors weakest. Unknown/unclassified relationships score 0.
+ */
+const RELATIONSHIP_SCORES: Record<string, number> = {
+  'imports': 1.0,
+  'imported-by': 1.0,
+  'transitive-dependency': 0.5,
+  'same-directory': 0.25,
 };
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.js', '.tsx', '.jsx']);
@@ -99,7 +144,9 @@ export function computeFileTypeRelevance(filePath: string): number {
 /**
  * Exponential decay based on how recently the file was checked.
  * Files checked in the last hour get ~1.0, files checked days ago get ~0.0.
- * Uses a half-life of 4 hours.
+ * Uses a half-life of 4 hours. Age is quantized to whole minutes so scores
+ * are deterministic across back-to-back calls (sub-minute age differences
+ * are noise at a 4-hour half-life).
  */
 export function computeRecency(lastChecked: number, now?: number): number {
   const currentTime = now ?? Date.now();
@@ -107,25 +154,46 @@ export function computeRecency(lastChecked: number, now?: number): number {
 
   if (ageMs <= 0) return 1.0;
 
+  const MINUTE_MS = 60 * 1000;
   const HALF_LIFE_MS = 4 * 60 * 60 * 1000; // 4 hours
-  return Math.pow(2, -ageMs / HALF_LIFE_MS);
+  const quantizedAgeMs = Math.floor(ageMs / MINUTE_MS) * MINUTE_MS;
+  return Math.pow(2, -quantizedAgeMs / HALF_LIFE_MS);
+}
+
+/** Score the candidate's classified relationship to the query file. */
+export function computeRelationshipScore(relationship: string | undefined): number {
+  if (!relationship) return 0;
+  return RELATIONSHIP_SCORES[relationship] ?? 0;
 }
 
 /**
- * Score based on distance in the dependency graph from explored files.
+ * Log-scaled degree centrality relative to the most-connected candidate.
+ * Returns 0 when the file has no connections or no maximum is known, 1.0
+ * for the best-connected candidate. Log scaling compresses the range so a
+ * 50-edge hub does not score 50x a 1-edge leaf — it is a tiebreaker prior,
+ * not a dominator.
+ */
+export function computeCentrality(degree: number, maxDegree: number): number {
+  if (degree <= 0 || maxDegree <= 0) return 0;
+  return Math.log1p(degree) / Math.log1p(maxDegree);
+}
+
+/**
+ * Score based on distance in the dependency graph from anchor files (the
+ * query file and/or task-explored files).
  * 1.0 if directly connected, 0.5 if 2 hops away, decaying by 1/2^(distance-1).
- * Returns 0 if no graph or no explored files.
+ * Returns 0 if no graph or no anchor files.
  */
 export function computeDependencyProximity(
   filePath: string,
-  exploredFiles: string[],
+  anchorFiles: string[],
   graph: DependencyGraph,
 ): number {
-  if (exploredFiles.length === 0) return 0;
+  if (anchorFiles.length === 0) return 0;
 
   let bestScore = 0;
 
-  for (const explored of exploredFiles) {
+  for (const explored of anchorFiles) {
     // Check direct connection (1 hop)
     const deps = graph.getDependencies(explored);
     const dependents = graph.getDependents(explored);
@@ -220,6 +288,26 @@ export function rankFiles(files: string[], options: RankingOptions): RankedFile[
   const flaggedFiles = options.flaggedFiles ?? [];
   const now = Date.now();
 
+  // Proximity anchors: the query file (so the signal works without a task)
+  // plus any task-explored files.
+  const anchorFiles = options.queryFile
+    ? [options.queryFile, ...exploredFiles]
+    : exploredFiles;
+
+  // Degree centrality, normalized against the best-connected candidate so
+  // the signal is relative to the result set being ranked.
+  const degrees = new Map<string, number>();
+  let maxDegree = 0;
+  if (options.graph) {
+    for (const filePath of files) {
+      const degree =
+        options.graph.getDependencies(filePath).length +
+        options.graph.getDependents(filePath).length;
+      degrees.set(filePath, degree);
+      if (degree > maxDegree) maxDegree = degree;
+    }
+  }
+
   const results: RankedFile[] = files.map((filePath) => {
     const fileTypeRelevance = computeFileTypeRelevance(filePath);
 
@@ -233,7 +321,7 @@ export function rankFiles(files: string[], options: RankingOptions): RankedFile[
 
     let dependencyProximity = 0;
     if (options.graph) {
-      dependencyProximity = computeDependencyProximity(filePath, exploredFiles, options.graph);
+      dependencyProximity = computeDependencyProximity(filePath, anchorFiles, options.graph);
     }
 
     const taskContextRelevance = computeTaskContextRelevance(
@@ -242,23 +330,25 @@ export function rankFiles(files: string[], options: RankingOptions): RankedFile[
       flaggedFiles,
     );
 
-    // changeFrequency is a placeholder — would need git log data to compute properly
-    const changeFrequency = 0.5;
+    const relationship = computeRelationshipScore(options.relationships?.get(filePath));
+    const centrality = computeCentrality(degrees.get(filePath) ?? 0, maxDegree);
 
     const signals: RankingSignals = {
+      relationship,
       dependencyProximity,
       recency,
       fileTypeRelevance,
       taskContextRelevance,
-      changeFrequency,
+      centrality,
     };
 
     const score =
+      signals.relationship * weights.relationship +
       signals.dependencyProximity * weights.dependencyProximity +
       signals.recency * weights.recency +
       signals.fileTypeRelevance * weights.fileTypeRelevance +
       signals.taskContextRelevance * weights.taskContextRelevance +
-      signals.changeFrequency * weights.changeFrequency;
+      signals.centrality * weights.centrality;
 
     return { path: filePath, score, signals };
   });

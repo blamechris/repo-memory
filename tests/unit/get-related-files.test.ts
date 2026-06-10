@@ -91,6 +91,41 @@ describe('getRelatedFiles', () => {
     }
   });
 
+  it('ranks direct imports above two-hop files above same-directory bystanders', async () => {
+    // From src/index.ts: helper.ts is a direct import (1 hop), util.ts is two
+    // hops away (index -> helper -> util), other.ts is only a same-directory
+    // neighbor with no edges.
+    const result = await getRelatedFiles(tempDir, 'src/index.ts');
+    const score = (path: string) => result.relatedFiles.find((f) => f.path === path)?.score;
+
+    const helperScore = score('src/helper.ts');
+    const utilScore = score('src/util.ts');
+    const otherScore = score('src/other.ts');
+
+    expect(helperScore).toBeDefined();
+    expect(utilScore).toBeDefined();
+    expect(otherScore).toBeDefined();
+    expect(helperScore!).toBeGreaterThan(utilScore!);
+    expect(utilScore!).toBeGreaterThanOrEqual(otherScore!);
+  });
+
+  it('does not return identical scores for structurally different files (no task)', async () => {
+    // Regression: every source file used to tie at exactly 0.325 because no
+    // live signal differentiated candidates in the no-task path.
+    const result = await getRelatedFiles(tempDir, 'src/helper.ts');
+    expect(result.relatedFiles.length).toBeGreaterThan(1);
+    const distinctScores = new Set(result.relatedFiles.map((f) => f.score));
+    expect(distinctScores.size).toBeGreaterThan(1);
+  });
+
+  it('is deterministic: repeated calls return the same order', async () => {
+    const first = await getRelatedFiles(tempDir, 'src/index.ts');
+    const second = await getRelatedFiles(tempDir, 'src/index.ts');
+    expect(second.relatedFiles.map((f) => f.path)).toEqual(
+      first.relatedFiles.map((f) => f.path),
+    );
+  });
+
   it('works without task context', async () => {
     const result = await getRelatedFiles(tempDir, 'src/index.ts');
     expect(result.path).toBe('src/index.ts');
