@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    # One grouped PR per month instead of one per package; the CI matrix
+    # (Node 20/22/26 + Windows) validates the batch.
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Pinned ^0.25.10: 0.26.x rejects the tree-sitter-wasms grammar
+      # binaries (Emscripten dylink mismatch at Language.load — see
+      # CLAUDE.md). Re-test grammar loading manually before any bump.
+      - dependency-name: web-tree-sitter
+      # Majors need a human decision; minors/patches flow via the group.
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
