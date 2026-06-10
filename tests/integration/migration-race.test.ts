@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 /**
  * Guardian I9: two processes opening a fresh database concurrently must both
