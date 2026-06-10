@@ -181,6 +181,7 @@ Create a `.repo-memory.json` in your project root to customize behavior:
 {
   "ignore": ["dist", "node_modules", "*.generated.ts"],
   "maxFiles": 5000,
+  "summarizer": "ast",
   "gc": {
     "cacheMaxAgeDays": 30,
     "taskMaxAgeDays": 30,
@@ -192,6 +193,8 @@ Create a `.repo-memory.json` in your project root to customize behavior:
   }
 }
 ```
+
+`summarizer` selects the summary engine: `"regex"` (default) or `"ast"`. AST mode parses TypeScript/JavaScript files (`.ts/.tsx/.js/.jsx/.mjs/.cjs`) with tree-sitter, producing accurate exports/declarations and a semantic `purpose` line that names the dominant symbols (e.g. `class CacheStore (9 methods)` instead of `source`) — which is what `search_by_purpose` matches against. TS/JS only for now; other languages, unsupported extensions, and files with parse errors fall back to the regex summarizer automatically. Switching modes regenerates summaries lazily on next access.
 
 The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable).
 
@@ -206,8 +209,8 @@ Config validation is per-key: an invalid value is skipped with a warning on stde
 
 ## Language Support
 
-Summaries are extracted via regex analysis. Supported languages:
-- **TypeScript / JavaScript** — exports, imports, declarations, purpose classification
+Summaries are extracted via regex analysis (or tree-sitter when `"summarizer": "ast"` is set — TS/JS only). Supported languages:
+- **TypeScript / JavaScript** — exports, imports, declarations, purpose classification; optional AST mode for semantic purpose lines
 - **Python** — functions, classes, `__all__`, `from`/`import` statements
 - **Go** — exported names (uppercase), imports, type/func/var/const declarations
 - **Rust** — `pub` items, `use`/`mod` statements, structs/enums/traits/impls
