@@ -36,11 +36,11 @@ describe.skipIf(process.platform === 'win32')('performance budgets', () => {
 
     // Initialize git so scanProject works correctly
     const { execFileSync } = await import('child_process');
-    execFileSync('git', ['init'], { cwd: tempDir, stdio: 'pipe' });
-    execFileSync('git', ['add', '.'], { cwd: tempDir, stdio: 'pipe' });
+    execFileSync('git', ['-c', 'gc.auto=0', '-c', 'maintenance.auto=false', '-c', 'core.fsmonitor=false', 'init'], { cwd: tempDir, stdio: 'pipe' });
+    execFileSync('git', ['-c', 'gc.auto=0', '-c', 'maintenance.auto=false', '-c', 'core.fsmonitor=false', 'add', '.'], { cwd: tempDir, stdio: 'pipe' });
     execFileSync(
       'git',
-      ['commit', '-m', 'init', '--no-gpg-sign'],
+      ['-c', 'gc.auto=0', '-c', 'maintenance.auto=false', '-c', 'core.fsmonitor=false', 'commit', '-m', 'init', '--no-gpg-sign'],
       {
         cwd: tempDir,
         stdio: 'pipe',
