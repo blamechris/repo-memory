@@ -54,8 +54,10 @@ export async function runIndex(
   for (const file of files) {
     try {
       // Reuses the exact cache-read/write semantics of the get_file_summary
-      // tool: hash, compare, regenerate only when missing/stale.
-      const result = await getFileSummary(root, file);
+      // tool: hash, compare, regenerate only when missing/stale. Telemetry is
+      // suppressed — prewarm traffic isn't agent traffic and would distort
+      // hit-ratio stats.
+      const result = await getFileSummary(root, file, { trackTelemetry: false });
       if (result.fromCache) {
         fresh += 1;
       } else {

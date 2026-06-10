@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CacheStore } from '../../src/cache/store.js';
 import { runIndex } from '../../src/cli/index-command.js';
+import { TelemetryTracker } from '../../src/telemetry/tracker.js';
 import { clearConfigCache } from '../../src/config.js';
 import { clearSummaryGenerationCache } from '../../src/indexer/summarize.js';
 import { closeDatabase, getDatabasePath } from '../../src/persistence/db.js';
@@ -103,6 +104,14 @@ describe('runIndex', () => {
     const store = new CacheStore(projectDir);
     expect(store.getEntry('src/index.ts')!.summary).not.toBeNull();
     expect(store.getEntry('src/utils.ts')!.summary).not.toBeNull();
+  });
+
+  it('records no telemetry events', async () => {
+    await runIndex(tempDir, { quiet: true });
+    await runIndex(tempDir, { quiet: true }); // second run hits the cache
+
+    const tracker = new TelemetryTracker(tempDir);
+    expect(tracker.getEvents()).toHaveLength(0);
   });
 
   it('rejects a project root that does not exist', async () => {

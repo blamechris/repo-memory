@@ -18,10 +18,21 @@ export interface FileSummaryResult {
   suggestFullRead: boolean;
 }
 
+export interface GetFileSummaryOptions {
+  /**
+   * Record cache_hit/cache_miss telemetry (default true). Bulk operations like
+   * the `index` prewarm CLI disable this so they don't distort agent-traffic
+   * hit-ratio stats.
+   */
+  trackTelemetry?: boolean;
+}
+
 export async function getFileSummary(
   projectRoot: string,
   relativePath: string,
+  options: GetFileSummaryOptions = {},
 ): Promise<FileSummaryResult> {
+  const trackTelemetry = options.trackTelemetry ?? true;
   relativePath = validatePath(projectRoot, relativePath);
   ensureSummaryGeneration(projectRoot);
   const store = new CacheStore(projectRoot);
@@ -40,8 +51,10 @@ export async function getFileSummary(
   const tracker = new TelemetryTracker(projectRoot);
 
   if (cached && cached.hash === currentHash && cached.summary) {
-    const tokensSaved = estimateTokensSaved(contents, cached.summary);
-    tracker.trackEvent('cache_hit', relativePath, tokensSaved);
+    if (trackTelemetry) {
+      const tokensSaved = estimateTokensSaved(contents, cached.summary);
+      tracker.trackEvent('cache_hit', relativePath, tokensSaved);
+    }
 
     return {
       path: relativePath,
@@ -67,7 +80,9 @@ export async function getFileSummary(
     reason = 'cache_miss: no summary in cache';
   }
 
-  tracker.trackEvent('cache_miss', relativePath, 0);
+  if (trackTelemetry) {
+    tracker.trackEvent('cache_miss', relativePath, 0);
+  }
 
   return {
     path: relativePath,
