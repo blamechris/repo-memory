@@ -1,4 +1,5 @@
 import { resolve, normalize, relative, sep } from 'node:path';
+import { toPosix } from './posix-path.js';
 
 /**
  * Validates that a file path is safe and resolves within the project root.
@@ -25,5 +26,5 @@ export function validatePath(projectRoot: string, filePath: string): string {
     );
   }
 
-  return relative(normalizedRoot, resolvedPath);
+  return toPosix(relative(normalizedRoot, resolvedPath));
 }

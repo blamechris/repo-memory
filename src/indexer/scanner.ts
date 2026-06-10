@@ -3,6 +3,7 @@ import { readdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { promisify } from 'util';
 import { loadConfig } from '../config.js';
+import { toPosix } from '../utils/posix-path.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -108,7 +109,7 @@ async function scanWithFs(rootDir: string): Promise<string[]> {
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else if (entry.isFile()) {
-        files.push(relative(rootDir, fullPath));
+        files.push(toPosix(relative(rootDir, fullPath)));
       }
     }
   }

@@ -1,5 +1,6 @@
 import { dirname, join, normalize, relative } from 'path';
 import type { ImportRef } from '../types.js';
+import { toPosix } from '../utils/posix-path.js';
 
 function isRelativeImport(specifier: string): boolean {
   return specifier === '.' || specifier === '..' ||
@@ -16,7 +17,7 @@ function resolveTarget(
   }
   const fileDir = dirname(join(projectRoot, filePath));
   const resolved = normalize(join(fileDir, importSpecifier));
-  return relative(projectRoot, resolved);
+  return toPosix(relative(projectRoot, resolved));
 }
 
 function getExtension(filePath: string): string {
