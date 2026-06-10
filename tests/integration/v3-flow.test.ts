@@ -227,7 +227,7 @@ describe('V3 end-to-end flow', () => {
     // Step 14: Query dependents of changed file to assess impact
     const impactGraph = await getDependencyGraphTool(
       projectDir,
-      'src/utils/validate.js',
+      'src/utils/validate.ts',
       'dependents',
     );
     expect(impactGraph.nodes).toContain('src/services/user.ts');

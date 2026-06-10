@@ -15,6 +15,7 @@ import kotlin.math.max`;
         target: 'kotlin/math/max',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -30,6 +31,7 @@ import com.example.util.*`;
         target: 'com/example/util',
         specifiers: ['*'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -45,6 +47,7 @@ import com.example.io.Reader as R`;
         target: 'com/example/io/Reader',
         specifiers: ['R'],
         type: 'static',
+        external: true,
       },
     ]);
   });

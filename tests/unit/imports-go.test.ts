@@ -15,6 +15,7 @@ import "fmt"`;
         target: 'fmt',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -30,6 +31,7 @@ import f "fmt"`;
         target: 'fmt',
         specifiers: ['f'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -61,6 +63,7 @@ import (
       target: 'path/to/pkg',
       specifiers: ['myalias'],
       type: 'static',
+      external: true,
     });
   });
 
@@ -100,6 +103,7 @@ import (
       target: 'net/http/pprof',
       specifiers: ['_'],
       type: 'static',
+      external: true,
     });
   });
 
@@ -129,6 +133,7 @@ import "github.com/user/repo/pkg/utils"`;
         target: 'github.com/user/repo/pkg/utils',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
