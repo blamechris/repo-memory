@@ -144,9 +144,11 @@ Suggested rollout:
    ~573 kB compressed (~5.7 MB unpacked).
 3. Flip the default to `ast` for TS/JS after a release of soak time; the
    generation tag handles the cache migration automatically.
-4. Extend to Python/Go/Rust: grammars are already in `tree-sitter-wasms`; each
-   language needs an extraction visitor (~100 lines) and purpose templates.
-   Regex stays as the universal fallback.
+4. **Done.** Extend to Python/Go/Rust: per-language extraction visitors in
+   `ast-summarizer.ts` (exports, imports, declarations, doc-comment purpose
+   lines), with the three grammar wasms vendored alongside the TS/JS ones.
+   Regex stays as the universal fallback; summarizer generation bumped to 2 so
+   ast-mode caches for these languages regenerate lazily.
 5. Fix the `async` export bug in the regex summarizer independently — it
    benefits the fallback path and non-TS languages' sibling patterns.
 
