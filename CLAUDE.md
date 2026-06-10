@@ -45,6 +45,7 @@ npm run format       # Prettier
 - No `console.log` in production code (use structured logging via MCP)
 - Cache correctness over cache performance — never return stale data
 - Deterministic file hashing (SHA-256)
+- `web-tree-sitter` is pinned to `^0.25.10`: 0.26.x rejects the `tree-sitter-wasms` grammar binaries (Emscripten dylink mismatch at Language.load). Re-test grammar loading before any bump (see docs/planning/ast-summarizer-spike.md).
 
 ## Git Workflow
 
