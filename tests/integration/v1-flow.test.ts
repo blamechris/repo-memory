@@ -64,7 +64,7 @@ describe('V1 end-to-end flow', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(projectDir, { recursive: true, force: true });
+    rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('full V1 tool flow: map → summary → cache hit → change → reread → invalidate', async () => {

@@ -4,6 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { scanProject } from '../../src/indexer/scanner.js';
 import { clearConfigCache } from '../../src/config.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('scanProject', () => {
   let tempDir: string;
@@ -13,7 +14,8 @@ describe('scanProject', () => {
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   function createFile(relativePath: string, content = ''): void {

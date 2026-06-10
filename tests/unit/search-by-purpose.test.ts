@@ -9,6 +9,7 @@ import { clearSummaryGenerationCache } from '../../src/indexer/summarize.js';
 import { TelemetryTracker } from '../../src/telemetry/tracker.js';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { searchByPurpose } from '../../src/tools/search-by-purpose.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('searchByPurpose', () => {
   let tempDir: string;
@@ -50,7 +51,8 @@ describe('searchByPurpose', () => {
   });
 
   afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('matches on purpose field', async () => {
@@ -184,6 +186,10 @@ describe('searchByPurpose', () => {
     // its literal backslash name so freshness validation passes). A
     // forward-slash pathPrefix must still scope it.
     const winContents = 'export function handleRequest() {}\n';
+    // On POSIX hosts the backslashes are literal characters in one filename;
+    // on Windows the same join is a nested path, so the directory must exist.
+    // Both layouts are the faithful platform-respective legacy state.
+    await mkdir(join(tempDir, 'src', 'win'), { recursive: true });
     await writeFile(join(tempDir, 'src\\win\\handler.ts'), winContents);
     const store = new CacheStore(tempDir);
     store.setEntry('src\\win\\handler.ts', hashContents(winContents), {
@@ -239,7 +245,8 @@ describe('searchByPurpose freshness validation (invariant I5)', () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     clearConfigCache();
     clearSummaryGenerationCache();
   });
@@ -388,7 +395,8 @@ describe('searchByPurpose relevance scoring', () => {
   });
 
   afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('ranks a whole-word match above a substring match', async () => {

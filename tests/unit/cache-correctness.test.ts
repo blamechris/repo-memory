@@ -32,7 +32,8 @@ describe('Cache correctness regression tests', () => {
   afterEach(() => {
     closeDatabase();
     if (tmpDir) {
-      rmSync(tmpDir, { recursive: true, force: true });
+      closeDatabase();
+      rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

@@ -60,6 +60,7 @@ describe('performance budgets', () => {
 
   it('scanProject completes within 2s for 100 files', async () => {
     // Clean up the default tempDir since createPerfFixture makes its own
+    closeDatabase();
     rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
     const fixtureDir = createPerfFixture({ fileCount: 100 });

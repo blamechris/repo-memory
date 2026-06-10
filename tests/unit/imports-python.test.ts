@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { closeDatabase } from '../../src/persistence/db.js';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -188,7 +189,8 @@ from collections import defaultdict, OrderedDict`;
         type: 'static',
       });
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      closeDatabase();
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

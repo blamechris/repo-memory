@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { forceReread } from '../../src/tools/force-reread.js';
 import { markExploredTool } from '../../src/tools/task-context.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('path security integration', () => {
   let tempDir: string;
@@ -28,7 +29,8 @@ describe('path security integration', () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('getFileSummary rejects path traversal', async () => {

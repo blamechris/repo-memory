@@ -12,7 +12,8 @@ describe('cross-turn state preservation', () => {
   afterEach(() => {
     closeDatabase();
     if (tempDir) {
-      rmSync(tempDir, { recursive: true, force: true });
+      closeDatabase();
+      rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

@@ -20,7 +20,7 @@ describe('CacheInvalidator', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(projectRoot, { recursive: true, force: true });
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   describe('validateEntry', () => {

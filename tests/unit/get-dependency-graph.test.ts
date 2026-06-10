@@ -26,7 +26,7 @@ describe('getDependencyGraphTool', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(tempDir, { recursive: true, force: true });
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('returns dependencies for a single file as an adjacency map', async () => {

@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { extractImports } from '../../src/indexer/imports.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('extractImports', () => {
   let projectRoot: string;
@@ -29,7 +30,8 @@ describe('extractImports', () => {
   });
 
   afterAll(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('extracts static named imports and resolves to the real file', () => {

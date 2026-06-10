@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { batchFileSummaries } from '../../src/tools/batch-file-summaries.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('batchFileSummaries', () => {
   let tempDir: string;
@@ -33,7 +34,8 @@ describe('batchFileSummaries', () => {
   });
 
   afterAll(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('returns summaries for multiple files', async () => {

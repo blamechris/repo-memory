@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getDatabase } from '../../src/persistence/db.js';
+import { getDatabase, closeDatabase } from '../../src/persistence/db.js';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 
 describe('getFileSummary', () => {
@@ -14,7 +14,8 @@ describe('getFileSummary', () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('returns a fresh summary for a valid file (cache miss)', async () => {

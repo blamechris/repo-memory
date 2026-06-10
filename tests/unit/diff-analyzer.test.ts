@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { analyzeDiff } from '../../src/indexer/diff-analyzer.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 function git(args: string[], cwd: string): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8' });
@@ -20,7 +21,8 @@ describe('analyzeDiff', () => {
   });
 
   afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('detects structural change when export is added', () => {

@@ -20,7 +20,7 @@ describe('task context MCP tools', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(tempDir, { recursive: true, force: true });
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('create_task returns a valid task', () => {
