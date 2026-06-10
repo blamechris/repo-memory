@@ -72,7 +72,7 @@ describe('summarizeForProject', () => {
 
     // Hashes were preserved, only summaries were dropped.
     const store = new CacheStore(tempDir);
-    expect(store.getMeta('summarizer_generation')).toBe('ast:1');
+    expect(store.getMeta('summarizer_generation')).toBe('ast:2');
   });
 
   it('does not wipe summaries when the mode is unchanged', async () => {

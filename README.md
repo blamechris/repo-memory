@@ -209,11 +209,11 @@ Config validation is per-key: an invalid value is skipped with a warning on stde
 
 ## Language Support
 
-Summaries are extracted via regex analysis (or tree-sitter when `"summarizer": "ast"` is set — TS/JS only). Supported languages:
-- **TypeScript / JavaScript** — exports, imports, declarations, purpose classification; optional AST mode for semantic purpose lines
-- **Python** — functions, classes, `__all__`, `from`/`import` statements
-- **Go** — exported names (uppercase), imports, type/func/var/const declarations
-- **Rust** — `pub` items, `use`/`mod` statements, structs/enums/traits/impls
+Summaries are extracted via regex analysis, or from tree-sitter parse trees when `"summarizer": "ast"` is set. All four language families below have AST support in `ast` mode, which adds semantic purpose lines derived from doc comments; regex stays as the universal fallback for other languages and unparseable files. Supported languages:
+- **TypeScript / JavaScript** — exports, imports, declarations, purpose classification; AST mode adds JSDoc-derived purpose lines
+- **Python** — functions, classes (incl. `async def`), `__all__`, `from`/`import` statements; AST mode adds docstring-derived purpose lines
+- **Go** — exported names (uppercase), imports, type/func/var/const declarations; AST mode adds doc-comment purpose lines and grouped `var (…)` / `const (…)` support
+- **Rust** — `pub` items, `use`/`mod` statements, structs/enums/traits/impls; AST mode adds `///` doc-comment purpose lines and `pub use` re-exports
 
 Config files (JSON, YAML, TOML) and other file types get basic classification.
 

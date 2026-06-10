@@ -203,11 +203,11 @@ describe('summarizeFileAst', () => {
     });
 
     it('delegates unsupported extensions to the regex summarizer', async () => {
-      const contents = 'def main():\n    pass\n';
-      const astResult = await summarizeFileAst('src/script.py', contents);
-      const regexResult = summarizeFile('src/script.py', contents);
+      const contents = 'def main\n  puts "hi"\nend\n';
+      const astResult = await summarizeFileAst('src/script.rb', contents);
+      const regexResult = summarizeFile('src/script.rb', contents);
       expect(astResult).toEqual(regexResult);
-      expect(isAstSupported('src/script.py')).toBe(false);
+      expect(isAstSupported('src/script.rb')).toBe(false);
     });
 
     it('delegates empty files to the regex summarizer', async () => {

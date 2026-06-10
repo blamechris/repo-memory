@@ -16,6 +16,9 @@ const GRAMMARS = [
   'tree-sitter-typescript.wasm',
   'tree-sitter-tsx.wasm',
   'tree-sitter-javascript.wasm',
+  'tree-sitter-python.wasm',
+  'tree-sitter-go.wasm',
+  'tree-sitter-rust.wasm',
 ];
 
 const require = createRequire(import.meta.url);
