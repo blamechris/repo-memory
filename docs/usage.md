@@ -26,6 +26,16 @@ Indexed /path/to/project
 
 Exits `0` on success, `1` on error (message on stderr).
 
+To keep the cache warm automatically, run it from a git `post-merge` hook so every pull/merge re-indexes only what changed:
+
+```sh
+#!/bin/sh
+# .git/hooks/post-merge (chmod +x)
+(npx -y @blamechris/repo-memory index . --quiet >/dev/null 2>&1 &)
+```
+
+The subshell-and-background form keeps pulls fast; with `--quiet` the run is silent. Note `post-merge` does not fire on rebase pulls (`git pull --rebase`).
+
 ## Tools Reference
 
 ### `get_file_summary`

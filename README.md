@@ -45,6 +45,8 @@ repo-memory index --quiet    # no output on success (for scripts/CI)
 
 Only missing or stale entries are re-summarized; unchanged files are left untouched.
 
+To automate it, drop a git `post-merge` hook in the project (see [docs/usage.md](docs/usage.md#cli) for the snippet) so every pull keeps the cache warm.
+
 ## How It Works
 
 ### The problem
