@@ -1,16 +1,16 @@
 import type { FileSummary } from '../types.js';
 import { analyzeDiff } from './diff-analyzer.js';
-import { summarizeFile } from './summarizer.js';
+import { summarizeForProject } from './summarize.js';
 
-export function smartSummarize(
+export async function smartSummarize(
   filePath: string,
   contents: string,
   oldSummary: FileSummary | null,
   projectRoot: string,
-): { summary: FileSummary; source: 'full' | 'diff-partial' } {
+): Promise<{ summary: FileSummary; source: 'full' | 'diff-partial' }> {
   if (!oldSummary) {
     return {
-      summary: summarizeFile(filePath, contents),
+      summary: await summarizeForProject(projectRoot, filePath, contents),
       source: 'full',
     };
   }
@@ -19,7 +19,7 @@ export function smartSummarize(
 
   if (analysis.structural) {
     return {
-      summary: summarizeFile(filePath, contents),
+      summary: await summarizeForProject(projectRoot, filePath, contents),
       source: 'full',
     };
   }
