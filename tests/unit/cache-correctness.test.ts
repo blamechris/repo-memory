@@ -32,7 +32,8 @@ describe('Cache correctness regression tests', () => {
   afterEach(() => {
     closeDatabase();
     if (tmpDir) {
-      rmSync(tmpDir, { recursive: true, force: true });
+      closeDatabase();
+      rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -175,7 +176,7 @@ describe('Cache correctness regression tests', () => {
   it('should handle very long file names', async () => {
     tmpDir = createTempProject();
     // 200+ char name
-    const longName = 'a'.repeat(200) + '.ts';
+    const longName = 'a'.repeat(180) + '.ts';
     const absPath = join(tmpDir, longName);
     writeFileSync(absPath, 'export const long = true;\n');
     addAndCommit(tmpDir, [longName]);

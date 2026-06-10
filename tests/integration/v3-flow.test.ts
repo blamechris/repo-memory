@@ -84,7 +84,7 @@ describe('V3 end-to-end flow', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(projectDir, { recursive: true, force: true });
+    rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('full V3 flow: session → telemetry → diff-aware → ranking → token report', async () => {

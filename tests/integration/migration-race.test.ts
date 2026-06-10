@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 /**
  * Guardian I9: two processes opening a fresh database concurrently must both
@@ -42,7 +43,8 @@ function runChild(projectDir: string): Promise<{ code: number | null; stderr: st
 
 describe('concurrent first-run migrations (multi-process)', () => {
   beforeAll(() => {
-    rmSync(harnessDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(harnessDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     mkdirSync(harnessDir, { recursive: true });
     execFileSync(
       process.execPath,
@@ -67,7 +69,8 @@ describe('concurrent first-run migrations (multi-process)', () => {
   });
 
   afterAll(() => {
-    rmSync(harnessDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(harnessDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('multiple processes racing on a fresh database all exit 0 and migrations apply once', async () => {
@@ -96,7 +99,8 @@ describe('concurrent first-run migrations (multi-process)', () => {
         expect(versions).toEqual(Array.from({ length: versions.length }, (_, i) => i + 1));
         expect(versions.length).toBeGreaterThanOrEqual(6);
       } finally {
-        rmSync(projectDir, { recursive: true, force: true });
+        closeDatabase();
+        rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       }
     }
   });

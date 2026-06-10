@@ -72,7 +72,7 @@ describe('V2 end-to-end flow', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(projectDir, { recursive: true, force: true });
+    rmSync(projectDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('dependency graph + task memory: full investigation flow', async () => {

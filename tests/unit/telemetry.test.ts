@@ -16,7 +16,7 @@ describe('TelemetryTracker', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(tempDir, { recursive: true, force: true });
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('tracks cache_hit event', () => {

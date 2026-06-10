@@ -73,7 +73,7 @@ describe('persisted graph freshness', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(tempDir, { recursive: true, force: true });
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('get_related_files does not re-read any file when nothing changed', async () => {

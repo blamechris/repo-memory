@@ -26,7 +26,7 @@ describe('DependencyGraph', () => {
 
   afterEach(() => {
     closeDatabase();
-    rmSync(tempDir, { recursive: true, force: true });
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('builds graph from import data with real file targets', () => {

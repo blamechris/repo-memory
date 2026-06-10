@@ -3,6 +3,7 @@ import { hashFile, hashContents } from '../../src/cache/hash.js';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('hashFile', () => {
   let tempDir: string;
@@ -13,7 +14,8 @@ describe('hashFile', () => {
   });
 
   afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    await rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('returns the same hash for the same file', async () => {

@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { loadConfig, clearConfigCache } from '../../src/config.js';
+import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('loadConfig', () => {
   let tempDir: string;
@@ -13,7 +14,8 @@ describe('loadConfig', () => {
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    closeDatabase();
+    rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     clearConfigCache();
   });
 
