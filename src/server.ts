@@ -177,7 +177,7 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
 
     server.registerTool('search_by_purpose', {
       title: 'Search By Purpose',
-      description: 'Find files by what they do when you don\'t know filenames — prefer this over grep for concept searches ("where is auth handled"). Matches against file purpose, exports, and declarations. Check totalCached > 0 in the response; if 0, warm the cache with `repo-memory index` first. Optionally scope to a directory with pathPrefix.',
+      description: 'Find files by what they do when you don\'t know filenames — prefer this over grep for concept searches ("where is auth handled"). Matches whole words in file purpose, exports, declarations, and path segments (camelCase/snake_case split, so "store" finds CacheStore). Check totalCached > 0 in the response; if 0, warm the cache with `repo-memory index` first. Optionally scope to a directory with pathPrefix.',
       inputSchema: {
         query: z.string().describe('Search keywords (e.g., "database", "auth middleware", "validation")'),
         limit: z.number().optional().describe('Max results (default: 20)'),

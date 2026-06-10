@@ -125,7 +125,7 @@ Returns summaries for multiple files in one call. Each file goes through the sam
 
 ### `search_by_purpose`
 
-Searches cached file summaries by keyword. Matches against each file's purpose, exports, and top-level declarations. Only files that have been summarized before (via `get_file_summary`, `batch_file_summaries`, or `force_reread`) are searchable.
+Searches cached file summaries by keyword. Matches against each file's purpose, exports, top-level declarations, and path segments. Matching is word-boundary aware: identifiers are split on camelCase/snake_case/kebab-case boundaries, a whole-word hit outranks a prefix hit which outranks a bare substring, and terms shorter than 3 characters only count as whole words (so `id` finds `findUserById` but not `validation`). Only files that have been summarized before (via `get_file_summary`, `batch_file_summaries`, or `force_reread`) are searchable.
 
 **Input:**
 ```json
@@ -153,7 +153,7 @@ Searches cached file summaries by keyword. Matches against each file's purpose, 
 ```
 
 **Parameters:**
-- `query` (required): Space-separated keywords. Purpose matches are weighted highest, then exports, then declarations.
+- `query` (required): Space-separated keywords. Purpose matches are weighted highest, then exports, then declarations and path segments.
 - `limit` (optional): Max results. Default: 20.
 - `pathPrefix` (optional): Restrict results to files at or under this path (e.g. `"src/cache"`). Matched on a path boundary, so `"src/cache"` excludes `src/cache-utils.ts`.
 

@@ -344,3 +344,88 @@ describe('searchByPurpose freshness validation (invariant I5)', () => {
     expect(regenerated.fromCache).toBe(false);
   });
 });
+
+describe('searchByPurpose relevance scoring', () => {
+  let tempDir: string;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'repo-memory-search-rank-'));
+    await mkdir(join(tempDir, 'src/cache'), { recursive: true });
+    await mkdir(join(tempDir, 'src/backup'), { recursive: true });
+    await mkdir(join(tempDir, 'src/telemetry'), { recursive: true });
+
+    // Whole-word "store" lives here (CacheStore tokenizes to cache, store).
+    await writeFile(
+      join(tempDir, 'src/cache/store.ts'),
+      `export class CacheStore {\n  get() {}\n  set() {}\n}\n`,
+    );
+    // "store" appears only as a substring inside "restores"/"restoresBackups".
+    await writeFile(
+      join(tempDir, 'src/backup/manager.ts'),
+      `export function restoresBackups() { return true; }\n`,
+    );
+    // Nothing in the summary says "telemetry" — only the path does.
+    await writeFile(join(tempDir, 'src/telemetry/tracker.ts'), `export class Tracker {}\n`);
+    // "id" as a real identifier word vs "id" buried inside "validate".
+    await writeFile(
+      join(tempDir, 'src/cache/lookup.ts'),
+      `export function findUserById(id: string) { return id; }\n`,
+    );
+    await writeFile(
+      join(tempDir, 'src/cache/checks.ts'),
+      `export function validateInput(input: string) { return !!input; }\n`,
+    );
+
+    for (const f of [
+      'src/cache/store.ts',
+      'src/backup/manager.ts',
+      'src/telemetry/tracker.ts',
+      'src/cache/lookup.ts',
+      'src/cache/checks.ts',
+    ]) {
+      await getFileSummary(tempDir, f);
+    }
+  });
+
+  afterAll(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('ranks a whole-word match above a substring match', async () => {
+    const result = await searchByPurpose(tempDir, 'store');
+    const paths = result.results.map((r) => r.path);
+    expect(paths[0]).toBe('src/cache/store.ts');
+    // The substring hit still matches, just lower.
+    expect(paths).toContain('src/backup/manager.ts');
+    expect(paths.indexOf('src/cache/store.ts')).toBeLessThan(
+      paths.indexOf('src/backup/manager.ts'),
+    );
+  });
+
+  it('splits camelCase identifiers into searchable words', async () => {
+    const result = await searchByPurpose(tempDir, 'user lookup');
+    expect(result.results[0].path).toBe('src/cache/lookup.ts');
+  });
+
+  it('short terms only match whole identifier words, not substrings', async () => {
+    const result = await searchByPurpose(tempDir, 'id');
+    const paths = result.results.map((r) => r.path);
+    expect(paths).toContain('src/cache/lookup.ts'); // findUserById -> ...by, id
+    expect(paths).not.toContain('src/cache/checks.ts'); // "id" inside "validate" is noise
+  });
+
+  it('matches on path segments when the summary text does not mention the term', async () => {
+    const result = await searchByPurpose(tempDir, 'telemetry');
+    expect(result.results.map((r) => r.path)).toContain('src/telemetry/tracker.ts');
+  });
+
+  it('matches a term that is a prefix of an identifier word', async () => {
+    const result = await searchByPurpose(tempDir, 'valid');
+    expect(result.results.map((r) => r.path)).toContain('src/cache/checks.ts');
+  });
+
+  it('does not match the file extension as a path word', async () => {
+    const result = await searchByPurpose(tempDir, 'ts');
+    expect(result.results).toEqual([]);
+  });
+});
