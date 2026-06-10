@@ -96,7 +96,7 @@ describe('buildProjectMap', () => {
     expect(map.tree.fileCount).toBe(9);
   });
 
-  it('should include size, lastModified, and confidence on file entries', async () => {
+  it('should include only name, purpose, and size on file entries', async () => {
     const map = await buildProjectMap(tempDir);
 
     // Collect all file entries from the tree
@@ -112,13 +112,28 @@ describe('buildProjectMap', () => {
     expect(allFiles.length).toBeGreaterThan(0);
 
     for (const file of allFiles) {
-      // size should be a positive number
       expect(file.size).toBeGreaterThan(0);
-      // lastModified should be a valid epoch timestamp (after 2020-01-01)
-      expect(file.lastModified).toBeGreaterThan(1577836800000);
-      // confidence should be one of the known values
-      expect(['high', 'medium', 'low']).toContain(file.confidence);
+      expect(typeof file.name).toBe('string');
+      expect(typeof file.purpose).toBe('string');
+      expect(Object.keys(file).sort()).toEqual(['name', 'purpose', 'size']);
     }
+  });
+
+  it('should omit zero-byte .gitkeep files from the tree', async () => {
+    mkdirSync(join(tempDir, 'src', 'empty'), { recursive: true });
+    writeFileSync(join(tempDir, 'src', 'empty', '.gitkeep'), '');
+
+    const map = await buildProjectMap(tempDir);
+
+    function collectNames(node: typeof map.tree): string[] {
+      let names = node.files.map((f) => f.name);
+      for (const child of node.children) {
+        names = names.concat(collectNames(child));
+      }
+      return names;
+    }
+
+    expect(collectNames(map.tree)).not.toContain('.gitkeep');
   });
 
   it('should reuse cached summaries on repeated calls', async () => {
