@@ -57,9 +57,26 @@ export class CacheStore {
     return rows.map(rowToEntry);
   }
 
+  /**
+   * Remove a cache entry and the dependency-graph edges extracted from it, in
+   * one transaction. Edges derive from the file's contents, so they share the
+   * entry's lifetime — leaving them behind would serve stale graph data until
+   * the next GC pass. (Incoming edges from other files are left alone: those
+   * files' contents still declare the import.)
+   */
   deleteEntry(path: string): void {
     const db = getDatabase(this.projectRoot);
-    db.prepare('DELETE FROM files WHERE path = ?').run(path);
+    const remove = db.transaction((p: string) => {
+      db.prepare('DELETE FROM imports WHERE source = ?').run(p);
+      db.prepare('DELETE FROM files WHERE path = ?').run(p);
+    });
+    remove(path);
+  }
+
+  /** Refresh last_checked for an entry without altering its hash or summary. */
+  touchEntry(path: string): void {
+    const db = getDatabase(this.projectRoot);
+    db.prepare('UPDATE files SET last_checked = ? WHERE path = ?').run(Date.now(), path);
   }
 
   setEntries(entries: Array<{ path: string; hash: string; summary?: FileSummary | null }>): void {

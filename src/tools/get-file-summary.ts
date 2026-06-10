@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
+import { isGraphIndexable } from '../indexer/source-extensions.js';
 import { summarizeForProject, ensureSummaryGeneration } from '../indexer/summarize.js';
+import { DependencyGraph } from '../graph/dependency-graph.js';
 import { TelemetryTracker } from '../telemetry/tracker.js';
 import { estimateTokensSaved } from '../telemetry/tokens.js';
 import type { FileSummary } from '../types.js';
@@ -69,6 +71,15 @@ export async function getFileSummary(
 
   // Generate fresh summary
   const summary = await summarizeForProject(projectRoot, relativePath, contents);
+
+  // Persist this file's import edges alongside the summary (contents are
+  // already in hand), so the dependency graph stays as fresh as the summary
+  // cache. Edges go first: if the entry write never happens, a stale hash
+  // simply re-triggers extraction — the reverse order could mark stale edges
+  // as fresh.
+  if (isGraphIndexable(relativePath)) {
+    new DependencyGraph(projectRoot).updateFile(relativePath, contents);
+  }
   store.setEntry(relativePath, currentHash, summary);
 
   let reason: string;

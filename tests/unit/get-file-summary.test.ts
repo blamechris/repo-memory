@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { getDatabase } from '../../src/persistence/db.js';
 import { getFileSummary } from '../../src/tools/get-file-summary.js';
 
 describe('getFileSummary', () => {
@@ -32,6 +33,22 @@ describe('getFileSummary', () => {
     expect(result.summary.lineCount).toBe(4);
     expect(result.reason).toBe('cache_miss: no prior entry');
     expect(result.cacheAge).toBeNull();
+  });
+
+  it('persists the file import edges when the summary regenerates', async () => {
+    await writeFile(join(tempDir, 'src', 'util.ts'), 'export const util = 1;\n', 'utf-8');
+    await writeFile(
+      join(tempDir, 'src', 'app.ts'),
+      `import { util } from './util.js';\nexport const app = util;\n`,
+      'utf-8',
+    );
+
+    await getFileSummary(tempDir, 'src/app.ts');
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT target FROM imports WHERE source = ?')
+      .all('src/app.ts') as Array<{ target: string }>;
+    expect(rows).toEqual([{ target: 'src/util.ts' }]);
   });
 
   it('returns cached summary on second call', async () => {

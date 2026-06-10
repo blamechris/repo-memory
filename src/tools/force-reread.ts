@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
+import { isGraphIndexable } from '../indexer/source-extensions.js';
 import { summarizeForProject, ensureSummaryGeneration } from '../indexer/summarize.js';
+import { DependencyGraph } from '../graph/dependency-graph.js';
 import { TelemetryTracker } from '../telemetry/tracker.js';
 import { estimateTokens } from '../telemetry/tokens.js';
 import type { FileSummary } from '../types.js';
@@ -20,6 +22,11 @@ export async function forceReread(
   const summary = await summarizeForProject(projectRoot, relativePath, contents);
 
   const store = new CacheStore(projectRoot);
+  // Re-extract import edges from the fresh contents before recording the new
+  // hash (see get-file-summary.ts for the ordering rationale).
+  if (isGraphIndexable(relativePath)) {
+    new DependencyGraph(projectRoot).updateFile(relativePath, contents);
+  }
   store.setEntry(relativePath, hash, summary);
 
   const tracker = new TelemetryTracker(projectRoot);

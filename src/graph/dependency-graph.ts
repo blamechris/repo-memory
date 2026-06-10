@@ -46,18 +46,18 @@ export class DependencyGraph {
       this.outgoing.delete(filePath);
     }
 
-    // Delete old rows from DB
-    db.prepare('DELETE FROM imports WHERE source = ?').run(filePath);
-
     // Extract new imports
     const imports = extractImports(filePath, contents, this.projectRoot);
 
-    // Insert new rows and update in-memory maps
     const insert = db.prepare(
       'INSERT OR REPLACE INTO imports (source, target, specifiers, import_type) VALUES (?, ?, ?, ?)',
     );
 
-    const insertAll = db.transaction(() => {
+    // Delete + insert in ONE transaction so concurrent readers never observe a
+    // torn state where the file's old edges are gone but the new ones are not
+    // yet written (audit invariant I2).
+    const replaceAll = db.transaction(() => {
+      db.prepare('DELETE FROM imports WHERE source = ?').run(filePath);
       for (const ref of imports) {
         // External targets (bare modules, builtins, unresolvable paths) are not
         // repo files — persisting them would pollute traversal and mostConnected.
@@ -67,7 +67,40 @@ export class DependencyGraph {
       }
     });
 
-    insertAll();
+    replaceAll();
+  }
+
+  /**
+   * Remove a file from the graph entirely: every persisted edge where it is
+   * the source or the target, plus the in-memory adjacency for both
+   * directions. Used when a file no longer exists on disk.
+   */
+  removeFile(filePath: string): void {
+    const db = getDatabase(this.projectRoot);
+    const remove = db.transaction(() => {
+      db.prepare('DELETE FROM imports WHERE source = ?').run(filePath);
+      db.prepare('DELETE FROM imports WHERE target = ?').run(filePath);
+    });
+    remove();
+    this.removeNode(filePath);
+  }
+
+  /**
+   * Remove every graph node (and its edges, in both directions) that is not
+   * in the given set of existing files. Call after load() so the in-memory
+   * maps reflect the persisted state.
+   */
+  prune(existingFiles: ReadonlySet<string>): void {
+    const missing = new Set<string>();
+    for (const node of this.outgoing.keys()) {
+      if (!existingFiles.has(node)) missing.add(node);
+    }
+    for (const node of this.incoming.keys()) {
+      if (!existingFiles.has(node)) missing.add(node);
+    }
+    for (const node of missing) {
+      this.removeFile(node);
+    }
   }
 
   /** Get direct dependencies of a file. */
@@ -132,6 +165,33 @@ export class DependencyGraph {
 
     result.sort((a, b) => b.connections - a.connections);
     return result.slice(0, limit);
+  }
+
+  /** Drop a node from the in-memory adjacency maps, in both directions. */
+  private removeNode(node: string): void {
+    const targets = this.outgoing.get(node);
+    if (targets) {
+      for (const target of targets) {
+        const sources = this.incoming.get(target);
+        if (sources) {
+          sources.delete(node);
+          if (sources.size === 0) this.incoming.delete(target);
+        }
+      }
+      this.outgoing.delete(node);
+    }
+
+    const sources = this.incoming.get(node);
+    if (sources) {
+      for (const source of sources) {
+        const targets = this.outgoing.get(source);
+        if (targets) {
+          targets.delete(node);
+          if (targets.size === 0) this.outgoing.delete(source);
+        }
+      }
+      this.incoming.delete(node);
+    }
   }
 
   private addEdge(source: string, target: string): void {

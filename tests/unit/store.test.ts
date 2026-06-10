@@ -73,6 +73,40 @@ describe('CacheStore', () => {
     expect(store.getEntry('to-delete.ts')).toBeNull();
   });
 
+  it('deleteEntry also removes import edges sourced from the file', () => {
+    store.setEntry('src/a.ts', 'hash1', null);
+    const db = getDatabase(tempDir);
+    db.prepare(
+      'INSERT INTO imports (source, target, specifiers, import_type) VALUES (?, ?, ?, ?)',
+    ).run('src/a.ts', 'src/b.ts', '["b"]', 'static');
+    db.prepare(
+      'INSERT INTO imports (source, target, specifiers, import_type) VALUES (?, ?, ?, ?)',
+    ).run('src/c.ts', 'src/a.ts', '["a"]', 'static');
+
+    store.deleteEntry('src/a.ts');
+
+    const rows = db.prepare('SELECT source, target FROM imports').all() as Array<{
+      source: string;
+      target: string;
+    }>;
+    // Outgoing edges die with the entry; incoming edges belong to src/c.ts.
+    expect(rows).toEqual([{ source: 'src/c.ts', target: 'src/a.ts' }]);
+  });
+
+  it('touchEntry refreshes last_checked without altering hash or summary', () => {
+    store.setEntry('src/a.ts', 'hash1', testSummary);
+    const db = getDatabase(tempDir);
+    const oldTimestamp = Date.now() - 60_000;
+    db.prepare('UPDATE files SET last_checked = ? WHERE path = ?').run(oldTimestamp, 'src/a.ts');
+
+    store.touchEntry('src/a.ts');
+
+    const entry = store.getEntry('src/a.ts');
+    expect(entry!.lastChecked).toBeGreaterThan(oldTimestamp);
+    expect(entry!.hash).toBe('hash1');
+    expect(entry!.summary).toEqual(testSummary);
+  });
+
   it('should return stale entries filtered by age', () => {
     store.setEntry('fresh.ts', 'hash1', null);
     store.setEntry('also-fresh.ts', 'hash2', null);

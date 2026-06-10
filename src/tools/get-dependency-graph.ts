@@ -1,7 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { DependencyGraph } from '../graph/dependency-graph.js';
-import { scanProject } from '../indexer/scanner.js';
+import { loadFreshGraph } from '../graph/refresh.js';
 import { validatePath } from '../utils/validate-path.js';
 
 export interface DependencyGraphResult {
@@ -24,23 +22,8 @@ export async function getDependencyGraphTool(
   if (path) {
     path = validatePath(projectRoot, path);
   }
-  const graph = new DependencyGraph(projectRoot);
-
-  // Index all files to build the graph
-  const files = await scanProject(projectRoot);
-  for (const file of files) {
-    if (!file.endsWith('.ts') && !file.endsWith('.js') && !file.endsWith('.tsx') &&
-        !file.endsWith('.jsx') && !file.endsWith('.mjs') && !file.endsWith('.cjs') &&
-        !file.endsWith('.py') && !file.endsWith('.go') && !file.endsWith('.rs')) {
-      continue;
-    }
-    try {
-      const contents = await readFile(join(projectRoot, file), 'utf-8');
-      graph.updateFile(file, contents);
-    } catch {
-      // Skip unreadable files
-    }
-  }
+  // Load the persisted dependency graph, refreshing only stale files.
+  const graph = await loadFreshGraph(projectRoot);
 
   if (symbol) {
     return getSymbolEdges(graph, symbol, path);
