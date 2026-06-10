@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync, readdirSync } from 'fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -23,6 +23,19 @@ describe('persisted graph freshness', () => {
       .mocked(readFile)
       .mock.calls.map((call) => String(call[0]))
       .filter((p) => p.startsWith(tempDir));
+  }
+
+  /**
+   * Age all project files past the refresh pass's mtime safety window, so an
+   * unchanged file is deterministically skippable and a fresh write (new
+   * mtime) is deterministically suspect — independent of filesystem timestamp
+   * granularity and test speed.
+   */
+  function backdateMtimes(): void {
+    const past = new Date(Date.now() - 60_000);
+    for (const name of readdirSync(join(tempDir, 'src'))) {
+      utimesSync(join(tempDir, 'src', name), past, past);
+    }
   }
 
   function edgeCount(path: string): number {
@@ -68,6 +81,7 @@ describe('persisted graph freshness', () => {
     expect(first.relatedFiles.map((f) => f.path)).toContain('src/helper.ts');
     expect(projectReads().length).toBeGreaterThan(0); // first call builds the graph
 
+    backdateMtimes();
     vi.mocked(readFile).mockClear();
     const second = await getRelatedFiles(tempDir, 'src/index.ts');
 
@@ -79,6 +93,7 @@ describe('persisted graph freshness', () => {
     const first = await getDependencyGraphTool(tempDir);
     expect(first.stats.totalEdges).toBeGreaterThan(0);
 
+    backdateMtimes();
     vi.mocked(readFile).mockClear();
     const second = await getDependencyGraphTool(tempDir);
 
@@ -88,6 +103,7 @@ describe('persisted graph freshness', () => {
 
   it('editing one file re-reads and refreshes only that file', async () => {
     await getRelatedFiles(tempDir, 'src/util.ts');
+    backdateMtimes();
 
     // index.ts now imports util.ts directly instead of helper.ts
     writeFileSync(

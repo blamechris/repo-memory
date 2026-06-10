@@ -17,6 +17,14 @@ const GRAPH_GENERATION_KEY = 'graph_generation';
 const GRAPH_GENERATION = '1';
 
 /**
+ * Filesystem mtimes can be coarser than Date.now() (whole-second granularity
+ * on some filesystems), so an edit made just after a check can carry an mtime
+ * that is *truncated below* the stored last_checked. Files whose mtime falls
+ * within this window of last_checked stay suspect and get hash-checked.
+ */
+const MTIME_SAFETY_WINDOW_MS = 2000;
+
+/**
  * Load the persisted dependency graph and bring it up to date without
  * re-reading unchanged files.
  *
@@ -65,7 +73,7 @@ export async function loadFreshGraph(
     }
 
     const entry = store.getEntry(file);
-    if (!fullRebuild && entry && mtimeMs < entry.lastChecked) {
+    if (!fullRebuild && entry && mtimeMs < entry.lastChecked - MTIME_SAFETY_WINDOW_MS) {
       // Unmodified since the stored hash was computed — do not re-read.
       continue;
     }
@@ -82,9 +90,9 @@ export async function loadFreshGraph(
     if (entry && entry.hash === currentHash) {
       // Content unchanged; edges for this hash are already persisted (unless
       // this is the one-time full rebuild). Bump last_checked so the next
-      // pass can skip on mtime alone.
+      // pass can skip on mtime alone once the file ages past the safety window.
       if (fullRebuild) graph.updateFile(file, contents);
-      if (mtimeMs >= entry.lastChecked) store.touchEntry(file);
+      store.touchEntry(file);
     } else {
       graph.updateFile(file, contents);
       // Record the hash the edges were extracted from. A pre-existing summary
