@@ -31,7 +31,9 @@ describe('runReport', () => {
     clearSummaryGenerationCache();
   });
 
-  it('reports cache hits and misses from recorded agent traffic', async () => {
+  // 20s: the first getFileSummary in a worker pays tree-sitter WASM startup,
+  // which can exceed the 5s default on contended CI runners.
+  it('reports cache hits and misses from recorded agent traffic', { timeout: 20_000 }, async () => {
     await getFileSummary(tempDir, 'src/greet.ts'); // miss
     await getFileSummary(tempDir, 'src/greet.ts'); // hit
 
@@ -72,7 +74,7 @@ describe('runReport', () => {
     expect(all.totalEvents).toBe(2);
   });
 
-  it('includes diagnostics on request', async () => {
+  it('includes diagnostics on request', { timeout: 20_000 }, async () => {
     await getFileSummary(tempDir, 'src/greet.ts');
     const report = runReport(tempDir, { diagnostics: true });
     expect(report.diagnostics).toBeDefined();
