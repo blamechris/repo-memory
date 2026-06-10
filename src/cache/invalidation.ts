@@ -40,13 +40,12 @@ export class CacheInvalidator {
   }
 
   /**
-   * Delete all cache entries.
+   * Delete all cache entries in one atomic statement — entries written by a
+   * concurrent process cannot slip through the way they could with a
+   * snapshot-then-delete loop.
    */
   invalidateAll(): void {
-    const entries = this.store.getAllEntries();
-    for (const entry of entries) {
-      this.store.deleteEntry(entry.path);
-    }
+    this.store.deleteAllEntries();
   }
 
   /**

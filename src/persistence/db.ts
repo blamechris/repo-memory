@@ -106,26 +106,46 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
   },
 ];
 
-function runMigrations(db: Database.Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS schema_version (
-      version INTEGER PRIMARY KEY,
-      applied_at INTEGER NOT NULL
-    );
-  `);
+function latestMigrationVersion(): number {
+  return Math.max(...MIGRATIONS.map((m) => m.version));
+}
 
+function appliedSchemaVersion(db: Database.Database): number {
   const applied = db
     .prepare('SELECT version FROM schema_version ORDER BY version DESC LIMIT 1')
     .get() as { version: number } | undefined;
+  return applied?.version ?? 0;
+}
 
-  const currentVersion = applied?.version ?? 0;
-
-  const sortedMigrations = [...MIGRATIONS].sort((a, b) => a.version - b.version);
-  const insertVersion = db.prepare(
-    'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)',
-  );
-
+/**
+ * Concurrent-safe migrations (Guardian I9). Two processes opening a fresh
+ * database at the same time (MCP server start + post-merge hook prewarm) must
+ * both succeed:
+ *
+ * - The whole sequence runs under BEGIN IMMEDIATE, so competing processes
+ *   serialize: the loser waits on the write lock (up to busy_timeout) instead
+ *   of interleaving.
+ * - `schema_version` is read *inside* the transaction, so the loser sees the
+ *   winner's rows once it gets the lock and applies nothing.
+ * - If the transaction still fails (busy_timeout exceeded, or a constraint
+ *   from a writer not using this protocol), the failure is tolerated when
+ *   another process has already completed the migrations.
+ */
+function runMigrations(db: Database.Database): void {
   const applyMigrations = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      );
+    `);
+
+    const currentVersion = appliedSchemaVersion(db);
+    const sortedMigrations = [...MIGRATIONS].sort((a, b) => a.version - b.version);
+    const insertVersion = db.prepare(
+      'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)',
+    );
+
     for (const migration of sortedMigrations) {
       if (migration.version > currentVersion) {
         migration.up(db);
@@ -134,7 +154,51 @@ function runMigrations(db: Database.Database): void {
     }
   });
 
-  applyMigrations();
+  try {
+    applyMigrations.immediate();
+  } catch (err) {
+    if (migrationsAlreadyApplied(db)) {
+      return; // lost the race; another process migrated the database
+    }
+    throw err;
+  }
+}
+
+function migrationsAlreadyApplied(db: Database.Database): boolean {
+  try {
+    return appliedSchemaVersion(db) >= latestMigrationVersion();
+  } catch {
+    return false; // schema_version table itself is missing or unreadable
+  }
+}
+
+/**
+ * Switching a fresh database into WAL takes a brief exclusive lock, and SQLite
+ * returns SQLITE_BUSY from a journal-mode change *without invoking the busy
+ * handler* when another connection holds a conflicting lock — so the
+ * connection's busy_timeout does not cover this one statement. Two processes
+ * opening a brand-new database together (MCP server start + post-merge hook
+ * prewarm) hit exactly that, so retry briefly. Once the database is in WAL
+ * the pragma is a no-op and never contends again.
+ */
+function enableWalMode(db: Database.Database): void {
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try {
+      db.pragma('journal_mode = WAL');
+      return;
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'SQLITE_BUSY' || Date.now() >= deadline) {
+        throw err;
+      }
+      sleepSync(10);
+    }
+  }
+}
+
+/** Synchronous sleep without blocking-spin (better-sqlite3 is a sync API). */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /** Absolute path of the cache database for a project (whether or not it exists yet). */
@@ -160,8 +224,9 @@ export function getDatabase(projectRoot: string): Database.Database {
     mkdirSync(dbDir, { recursive: true });
   }
 
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  const db = new Database(dbPath, { timeout: 5000 });
+  enableWalMode(db);
+  db.pragma('busy_timeout = 5000');
   db.pragma('foreign_keys = ON');
 
   runMigrations(db);
