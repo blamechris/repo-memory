@@ -59,6 +59,9 @@ export class DependencyGraph {
 
     const insertAll = db.transaction(() => {
       for (const ref of imports) {
+        // External targets (bare modules, builtins, unresolvable paths) are not
+        // repo files — persisting them would pollute traversal and mostConnected.
+        if (ref.external) continue;
         insert.run(ref.source, ref.target, JSON.stringify(ref.specifiers), ref.type);
         this.addEdge(ref.source, ref.target);
       }

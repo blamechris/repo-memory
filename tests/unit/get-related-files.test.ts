@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { getRelatedFiles } from '../../src/tools/get-related-files.js';
@@ -50,7 +50,7 @@ describe('getRelatedFiles', () => {
   it('returns direct dependencies as related', async () => {
     const result = await getRelatedFiles(tempDir, 'src/index.ts');
     const paths = result.relatedFiles.map((f) => f.path);
-    expect(paths).toContain('src/helper.js');
+    expect(paths).toContain('src/helper.ts');
   });
 
   it('returns direct dependents as related', async () => {
@@ -61,7 +61,7 @@ describe('getRelatedFiles', () => {
 
   it('classifies relationships correctly', async () => {
     const result = await getRelatedFiles(tempDir, 'src/index.ts');
-    const helperEntry = result.relatedFiles.find((f) => f.path === 'src/helper.js');
+    const helperEntry = result.relatedFiles.find((f) => f.path === 'src/helper.ts');
     expect(helperEntry).toBeDefined();
     expect(helperEntry!.relationship).toBe('imports');
 
@@ -80,6 +80,15 @@ describe('getRelatedFiles', () => {
   it('respects limit parameter', async () => {
     const result = await getRelatedFiles(tempDir, 'src/helper.ts', { limit: 2 });
     expect(result.relatedFiles.length).toBeLessThanOrEqual(2);
+  });
+
+  it('returns only paths that exist on disk', async () => {
+    // index.ts imports './helper.js' — the graph must resolve it to helper.ts
+    const result = await getRelatedFiles(tempDir, 'src/index.ts');
+    expect(result.relatedFiles.length).toBeGreaterThan(0);
+    for (const f of result.relatedFiles) {
+      expect(existsSync(join(tempDir, f.path)), `${f.path} should exist`).toBe(true);
+    }
   });
 
   it('works without task context', async () => {

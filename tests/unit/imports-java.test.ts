@@ -15,6 +15,7 @@ import java.util.List;`;
         target: 'java/util/List',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -30,6 +31,7 @@ import java.util.*;`;
         target: 'java/util',
         specifiers: ['*'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -45,6 +47,7 @@ import static java.lang.Math.max;`;
         target: 'java/lang/Math',
         specifiers: ['max'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -60,6 +63,7 @@ import static java.lang.Math.*;`;
         target: 'java/lang/Math',
         specifiers: ['*'],
         type: 'static',
+        external: true,
       },
     ]);
   });

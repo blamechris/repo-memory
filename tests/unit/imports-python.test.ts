@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { extractImports } from '../../src/indexer/imports.js';
 
 describe('extractImports — Python', () => {
@@ -13,6 +16,7 @@ describe('extractImports — Python', () => {
         target: 'os',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -26,6 +30,7 @@ describe('extractImports — Python', () => {
         target: 'os/path',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -39,12 +44,14 @@ describe('extractImports — Python', () => {
         target: 'os',
         specifiers: [],
         type: 'static',
+        external: true,
       },
       {
         source: 'src/app.py',
         target: 'sys',
         specifiers: [],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -58,6 +65,7 @@ describe('extractImports — Python', () => {
         target: 'os/path',
         specifiers: ['join', 'dirname'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -71,6 +79,7 @@ describe('extractImports — Python', () => {
         target: 'src',
         specifiers: ['utils'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -84,6 +93,7 @@ describe('extractImports — Python', () => {
         target: 'src/bar',
         specifiers: ['baz'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -97,6 +107,7 @@ describe('extractImports — Python', () => {
         target: 'src/sibling',
         specifiers: ['func'],
         type: 'static',
+        external: true,
       },
     ]);
   });
@@ -152,5 +163,32 @@ from collections import defaultdict, OrderedDict`;
     const result = extractImports('src/pkg/sub/app.py', contents, projectRoot);
     expect(result[0].target).toBe('src/base');
     expect(result[0].specifiers).toEqual(['Config']);
+  });
+
+  it('resolves relative imports to real .py files and packages', () => {
+    const root = mkdtempSync(join(tmpdir(), 'imports-py-test-'));
+    try {
+      mkdirSync(join(root, 'src', 'pkg'), { recursive: true });
+      writeFileSync(join(root, 'src', 'helpers.py'), '');
+      writeFileSync(join(root, 'src', 'pkg', '__init__.py'), '');
+
+      const contents = `from .helpers import slug\nfrom .pkg import thing`;
+      const result = extractImports('src/app.py', contents, root);
+
+      expect(result).toContainEqual({
+        source: 'src/app.py',
+        target: 'src/helpers.py',
+        specifiers: ['slug'],
+        type: 'static',
+      });
+      expect(result).toContainEqual({
+        source: 'src/app.py',
+        target: 'src/pkg/__init__.py',
+        specifiers: ['thing'],
+        type: 'static',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

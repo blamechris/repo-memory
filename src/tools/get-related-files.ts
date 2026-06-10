@@ -52,25 +52,14 @@ export async function getRelatedFiles(
     }
   }
 
-  // The graph may store paths with .js extension (from import specifiers) while
-  // actual files have .ts extension. Query both variants to get complete results.
-  const variants = getPathVariants(validated);
-
-  // Get direct dependencies and dependents across all path variants
-  const dependencies = new Set<string>();
-  const dependents = new Set<string>();
-  for (const v of variants) {
-    for (const d of graph.getDependencies(v)) dependencies.add(d);
-    for (const d of graph.getDependents(v)) dependents.add(d);
-  }
+  // Import targets are resolved to real file paths at extraction time, so the
+  // graph can be queried with the validated path directly.
+  const dependencies = new Set<string>(graph.getDependencies(validated));
+  const dependents = new Set<string>(graph.getDependents(validated));
 
   // Get transitive dependencies (depth 2) for "transitive-dependency" classification
-  const transitiveDeps = new Set<string>();
-  const transitiveDependents = new Set<string>();
-  for (const v of variants) {
-    for (const d of graph.getTransitiveDependencies(v, 2)) transitiveDeps.add(d);
-    for (const d of graph.getTransitiveDependents(v, 2)) transitiveDependents.add(d);
-  }
+  const transitiveDeps = new Set<string>(graph.getTransitiveDependencies(validated, 2));
+  const transitiveDependents = new Set<string>(graph.getTransitiveDependents(validated, 2));
 
   // Determine same-directory files
   const fileDir = dirname(validated);
@@ -86,8 +75,8 @@ export async function getRelatedFiles(
   for (const d of transitiveDependents) candidates.add(d);
   for (const d of sameDirFiles) candidates.add(d);
 
-  // Remove the file itself (all variants)
-  for (const v of variants) candidates.delete(v);
+  // Remove the file itself
+  candidates.delete(validated);
 
   if (candidates.size === 0) {
     return { path: validated, relatedFiles: [] };
@@ -140,21 +129,4 @@ export async function getRelatedFiles(
   }));
 
   return { path: validated, relatedFiles };
-}
-
-/** Get path variants to handle .ts/.js extension mismatch in the dependency graph. */
-function getPathVariants(filePath: string): string[] {
-  const variants = [filePath];
-  if (filePath.endsWith('.ts')) {
-    variants.push(filePath.replace(/\.ts$/, '.js'));
-  } else if (filePath.endsWith('.tsx')) {
-    variants.push(filePath.replace(/\.tsx$/, '.js'));
-    variants.push(filePath.replace(/\.tsx$/, '.jsx'));
-  } else if (filePath.endsWith('.js')) {
-    variants.push(filePath.replace(/\.js$/, '.ts'));
-    variants.push(filePath.replace(/\.js$/, '.tsx'));
-  } else if (filePath.endsWith('.jsx')) {
-    variants.push(filePath.replace(/\.jsx$/, '.tsx'));
-  }
-  return variants;
 }
