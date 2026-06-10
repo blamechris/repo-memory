@@ -182,7 +182,9 @@ Create a `.repo-memory.json` in your project root to customize behavior:
   "ignore": ["dist", "node_modules", "*.generated.ts"],
   "maxFiles": 5000,
   "gc": {
-    "cacheMaxAgeDays": 30
+    "cacheMaxAgeDays": 30,
+    "taskMaxAgeDays": 30,
+    "telemetryMaxAgeDays": 90
   },
   "tools": {
     "tasks": true,
@@ -191,7 +193,16 @@ Create a `.repo-memory.json` in your project root to customize behavior:
 }
 ```
 
-The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable). An invalid `.repo-memory.json` is ignored in full (built-in defaults apply) with a warning on stderr, rather than partially applied.
+The `tools` block toggles tool groups. `navigation` and `summaries` are **on by default** (set `"summaries": false` to drop the summary tools); `tasks` and `telemetry` are **off by default** (set them to `true` to enable).
+
+The `gc` block controls garbage collection, which runs automatically on server startup:
+- `cacheMaxAgeDays` — remove cache entries not checked in N days (default: 30)
+- `taskMaxAgeDays` — remove completed/archived tasks not updated in N days (default: 30)
+- `telemetryMaxAgeDays` — remove telemetry events older than N days (default: 90)
+
+GC also removes cache entries for deleted files and orphaned import records, regardless of age.
+
+Config validation is per-key: an invalid value is skipped with a warning on stderr while the remaining valid keys still apply. Only a file that can't be read or parsed as JSON falls back entirely to built-in defaults.
 
 ## Language Support
 
