@@ -137,4 +137,49 @@ describe('CacheStore', () => {
     const all = store.getAllEntries();
     expect(all).toHaveLength(1);
   });
+
+  it('clearAllSummariesAndSetMeta clears summaries and writes the tag together', () => {
+    store.setEntry('a.ts', 'hash-a', testSummary);
+    store.setEntry('b.ts', 'hash-b', testSummary);
+
+    store.clearAllSummariesAndSetMeta('summarizer_generation', 'ast:99');
+
+    expect(store.getEntry('a.ts')!.summary).toBeNull();
+    expect(store.getEntry('b.ts')!.summary).toBeNull();
+    expect(store.getEntry('a.ts')!.hash).toBe('hash-a'); // hashes survive
+    expect(store.getMeta('summarizer_generation')).toBe('ast:99');
+  });
+
+  it('clearAllSummariesAndSetMeta rolls back the clear when the tag write fails (I4)', () => {
+    store.setEntry('a.ts', 'hash-a', testSummary);
+    store.setMeta('summarizer_generation', 'ast:1');
+
+    // meta.value is NOT NULL — binding null makes the second statement of the
+    // transaction fail, and the clear must roll back with it.
+    expect(() =>
+      store.clearAllSummariesAndSetMeta('summarizer_generation', null as unknown as string),
+    ).toThrow();
+
+    expect(store.getEntry('a.ts')!.summary).toEqual(testSummary);
+    expect(store.getMeta('summarizer_generation')).toBe('ast:1');
+  });
+
+  it('deleteAllEntries removes every row', () => {
+    store.setEntry('a.ts', 'hash-a', null);
+    store.setEntry('b.ts', 'hash-b', testSummary);
+
+    store.deleteAllEntries();
+
+    expect(store.getAllEntries()).toHaveLength(0);
+  });
+
+  it('withWriteLock returns the callback result and commits its writes', () => {
+    const result = store.withWriteLock(() => {
+      store.setEntry('locked.ts', 'hash-l', null);
+      return 'done';
+    });
+
+    expect(result).toBe('done');
+    expect(store.getEntry('locked.ts')).not.toBeNull();
+  });
 });

@@ -1,4 +1,6 @@
+import type { Database } from 'better-sqlite3';
 import { getDatabase } from '../persistence/db.js';
+import { GENERATION_META_KEY, isStoredGenerationNewer } from './generation.js';
 import type { CacheEntry, FileSummary } from '../types.js';
 
 interface FileRow {
@@ -7,6 +9,27 @@ interface FileRow {
   last_checked: number;
   summary_json: string | null;
 }
+
+const UPSERT_ENTRY = `INSERT INTO files (path, hash, last_checked, summary_json)
+   VALUES (?, ?, ?, ?)
+   ON CONFLICT(path) DO UPDATE SET
+     hash = excluded.hash,
+     last_checked = excluded.last_checked,
+     summary_json = excluded.summary_json`;
+
+/**
+ * Upsert used when a lower-generation process tried to write a summary
+ * (read-through mode): the hash and timestamp are persisted so change
+ * detection stays correct, but the summary is not — and a newer-generation
+ * summary already stored for the *same hash* is preserved rather than nulled.
+ * (`files.hash` in the CASE refers to the pre-update row value.)
+ */
+const UPSERT_ENTRY_WITHOUT_SUMMARY = `INSERT INTO files (path, hash, last_checked, summary_json)
+   VALUES (?, ?, ?, NULL)
+   ON CONFLICT(path) DO UPDATE SET
+     summary_json = CASE WHEN files.hash = excluded.hash THEN files.summary_json ELSE NULL END,
+     hash = excluded.hash,
+     last_checked = excluded.last_checked`;
 
 function rowToEntry(row: FileRow): CacheEntry {
   return {
@@ -35,17 +58,28 @@ export class CacheStore {
 
   setEntry(path: string, hash: string, summary: FileSummary | null): void {
     const db = getDatabase(this.projectRoot);
-    const summaryJson = summary ? JSON.stringify(summary) : null;
     const now = Date.now();
 
-    db.prepare(
-      `INSERT INTO files (path, hash, last_checked, summary_json)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(path) DO UPDATE SET
-         hash = excluded.hash,
-         last_checked = excluded.last_checked,
-         summary_json = excluded.summary_json`,
-    ).run(path, hash, now, summaryJson);
+    if (summary === null) {
+      // A single statement is already atomic, and a null summary is safe to
+      // write at any generation — no guard needed.
+      db.prepare(UPSERT_ENTRY).run(path, hash, now, null);
+      return;
+    }
+
+    // Summary writes re-check the stored generation tag every time (cheap
+    // single-row read) instead of trusting the per-process memoization in
+    // ensureSummaryGeneration: an external writer (e.g. a newer package
+    // version run by a post-merge hook) may have bumped the generation since
+    // this process last looked. BEGIN IMMEDIATE holds the write lock across
+    // the check and the write so the tag cannot change in between.
+    db.transaction(() => {
+      if (this.summaryWritesBlocked(db)) {
+        db.prepare(UPSERT_ENTRY_WITHOUT_SUMMARY).run(path, hash, now);
+      } else {
+        db.prepare(UPSERT_ENTRY).run(path, hash, now, JSON.stringify(summary));
+      }
+    }).immediate();
   }
 
   getAllEntries(): CacheEntry[] {
@@ -82,23 +116,35 @@ export class CacheStore {
   setEntries(entries: Array<{ path: string; hash: string; summary?: FileSummary | null }>): void {
     const db = getDatabase(this.projectRoot);
     const now = Date.now();
-    const stmt = db.prepare(
-      `INSERT INTO files (path, hash, last_checked, summary_json)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(path) DO UPDATE SET
-         hash = excluded.hash,
-         last_checked = excluded.last_checked,
-         summary_json = excluded.summary_json`,
-    );
+    const upsert = db.prepare(UPSERT_ENTRY);
+    const upsertWithoutSummary = db.prepare(UPSERT_ENTRY_WITHOUT_SUMMARY);
 
-    const runBatch = db.transaction(() => {
+    // IMMEDIATE so the generation check and the batch write happen under one
+    // uninterrupted write lock (see setEntry).
+    db.transaction(() => {
+      const blocked = this.summaryWritesBlocked(db);
       for (const entry of entries) {
-        const summaryJson = entry.summary ? JSON.stringify(entry.summary) : null;
-        stmt.run(entry.path, entry.hash, now, summaryJson);
+        if (entry.summary && blocked) {
+          upsertWithoutSummary.run(entry.path, entry.hash, now);
+        } else {
+          const summaryJson = entry.summary ? JSON.stringify(entry.summary) : null;
+          upsert.run(entry.path, entry.hash, now, summaryJson);
+        }
       }
-    });
+    }).immediate();
+  }
 
-    runBatch();
+  /**
+   * Whether the stored generation tag belongs to a strictly newer package
+   * generation than this process, in which case summary writes from this
+   * process must not be persisted (Guardian I3). Must be called while the
+   * write lock is held so the answer cannot change before the write lands.
+   */
+  private summaryWritesBlocked(db: Database): boolean {
+    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(GENERATION_META_KEY) as
+      | { value: string }
+      | undefined;
+    return isStoredGenerationNewer(row?.value ?? null);
   }
 
   /** Read a value from the meta key/value table. */
@@ -127,6 +173,40 @@ export class CacheStore {
   clearAllSummaries(): void {
     const db = getDatabase(this.projectRoot);
     db.prepare('UPDATE files SET summary_json = NULL').run();
+  }
+
+  /**
+   * Atomically drop all summaries and write a meta value in one IMMEDIATE
+   * transaction (Guardian I4). Used for generation bumps: no other process
+   * can insert an old-generation summary between the clear and the tag write,
+   * and a crash between the two is unobservable.
+   */
+  clearAllSummariesAndSetMeta(key: string, value: string): void {
+    const db = getDatabase(this.projectRoot);
+    db.transaction(() => {
+      db.prepare('UPDATE files SET summary_json = NULL').run();
+      db.prepare(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run(key, value);
+    }).immediate();
+  }
+
+  /**
+   * Run `fn` while holding the database write lock (BEGIN IMMEDIATE). Use for
+   * read-decide-write sequences that must not interleave with writes from
+   * other processes. Nested store calls that open their own transactions
+   * collapse into savepoints inside this one.
+   */
+  withWriteLock<T>(fn: () => T): T {
+    const db = getDatabase(this.projectRoot);
+    return db.transaction(fn).immediate();
+  }
+
+  /** Delete every cache entry in a single atomic statement. */
+  deleteAllEntries(): void {
+    const db = getDatabase(this.projectRoot);
+    db.prepare('DELETE FROM files').run();
   }
 
   getStaleEntries(maxAge: number): CacheEntry[] {
