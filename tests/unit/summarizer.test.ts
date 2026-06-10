@@ -20,6 +20,16 @@ export enum Status { A, B }
     expect(result.exports).toContain('Status');
   });
 
+  it('extracts async function exports', () => {
+    const contents = `
+export async function fetchData() {}
+export default async function run() {}
+`;
+    const result = summarizeFile('src/fetch.ts', contents);
+    expect(result.exports).toContain('fetchData');
+    expect(result.exports).toContain('run');
+  });
+
   it('extracts default exports', () => {
     const contents = `
 export default function main() {}

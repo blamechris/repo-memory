@@ -11,7 +11,7 @@ const RUST_EXTENSIONS = new Set(['.rs']);
 const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
 
 const EXPORT_PATTERN =
-  /^export\s+(?:default\s+)?(?:const|let|var|function\s*\*?|class|interface|type|enum|abstract\s+class)\s+(\w+)/gm;
+  /^export\s+(?:default\s+)?(?:async\s+)?(?:const|let|var|function\s*\*?|class|interface|type|enum|abstract\s+class)\s+(\w+)/gm;
 
 const DEFAULT_EXPORT_PATTERN = /^export\s+default\s+/gm;
 
