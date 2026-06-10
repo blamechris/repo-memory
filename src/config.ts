@@ -12,6 +12,8 @@ export interface ToolGroupConfig {
 export interface RepoMemoryConfig {
   ignore?: string[];
   maxFiles?: number;
+  /** Summary engine for TS/JS files: 'regex' (default) or 'ast' (tree-sitter). */
+  summarizer?: 'regex' | 'ast';
   gc?: {
     cacheMaxAgeDays?: number;
     taskMaxAgeDays?: number;
@@ -74,6 +76,14 @@ function validateConfig(raw: unknown): RepoMemoryConfig {
       config.maxFiles = obj.maxFiles;
     } else {
       warn('"maxFiles" must be a positive number; ignoring it');
+    }
+  }
+
+  if ('summarizer' in obj) {
+    if (obj.summarizer === 'regex' || obj.summarizer === 'ast') {
+      config.summarizer = obj.summarizer;
+    } else {
+      warn('"summarizer" must be "regex" or "ast"; ignoring it');
     }
   }
 

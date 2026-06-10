@@ -169,6 +169,48 @@ describe('loadConfig', () => {
     expect(config.tools).toEqual({ summaries: true });
   });
 
+  it('loads summarizer mode from config file', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ summarizer: 'ast' }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.summarizer).toBe('ast');
+  });
+
+  it('accepts the explicit regex summarizer mode', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ summarizer: 'regex' }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config.summarizer).toBe('regex');
+  });
+
+  it('defaults to no summarizer mode when not specified', () => {
+    writeFileSync(join(tempDir, '.repo-memory.json'), JSON.stringify({ maxFiles: 100 }));
+    const config = loadConfig(tempDir);
+    expect(config.summarizer).toBeUndefined();
+  });
+
+  it('rejects invalid summarizer value and keeps other keys', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ summarizer: 'llm', maxFiles: 50 }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config).toEqual({ maxFiles: 50 });
+  });
+
+  it('rejects non-string summarizer value', () => {
+    writeFileSync(
+      join(tempDir, '.repo-memory.json'),
+      JSON.stringify({ summarizer: true }),
+    );
+    const config = loadConfig(tempDir);
+    expect(config).toEqual({});
+  });
+
   it('warns on stderr when a key is skipped', () => {
     const writes: string[] = [];
     const original = process.stderr.write;

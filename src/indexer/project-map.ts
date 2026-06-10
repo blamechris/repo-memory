@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join, dirname, basename, extname } from 'node:path';
 import { scanProject } from './scanner.js';
-import { summarizeFile } from './summarizer.js';
+import { summarizeForProject, ensureSummaryGeneration } from './summarize.js';
 import { CacheStore } from '../cache/store.js';
 import { hashContents } from '../cache/hash.js';
 import type { FileSummary } from '../types.js';
@@ -35,6 +35,7 @@ async function getSummaries(
   projectRoot: string,
   files: string[],
 ): Promise<FileSummaryEntry[]> {
+  ensureSummaryGeneration(projectRoot);
   const cache = new CacheStore(projectRoot);
   const entries: FileSummaryEntry[] = [];
 
@@ -58,7 +59,7 @@ async function getSummaries(
       continue;
     }
 
-    const summary = summarizeFile(relativePath, contents);
+    const summary = await summarizeForProject(projectRoot, relativePath, contents);
     const hash = hashContents(contents);
     cache.setEntry(relativePath, hash, summary);
     const stats = await stat(absolutePath);
@@ -160,8 +161,9 @@ function computeLanguageBreakdown(files: string[]): Record<string, number> {
 }
 
 function findEntryPoints(entries: FileSummaryEntry[]): string[] {
+  // AST-generated purposes are richer ("entry point: ..."), so match by prefix.
   return entries
-    .filter((e) => e.summary.purpose === 'entry point')
+    .filter((e) => e.summary.purpose.startsWith('entry point'))
     .map((e) => e.relativePath)
     .sort();
 }

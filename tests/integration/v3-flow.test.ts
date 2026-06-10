@@ -198,7 +198,7 @@ describe('V3 end-to-end flow', () => {
       '}',
       '',
     ].join('\n');
-    const smartResult = smartSummarize(
+    const smartResult = await smartSummarize(
       'src/utils/validate.ts',
       validateContents,
       { purpose: 'source', exports: ['validate'], imports: [], lineCount: 4, topLevelDeclarations: ['function validate'], confidence: 'high' as const },

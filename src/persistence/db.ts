@@ -93,6 +93,17 @@ const MIGRATIONS: Array<{ version: number; up: (db: Database.Database) => void }
       `);
     },
   },
+  {
+    version: 6,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `);
+    },
+  },
 ];
 
 function runMigrations(db: Database.Database): void {

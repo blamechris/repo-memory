@@ -84,6 +84,34 @@ export class CacheStore {
     runBatch();
   }
 
+  /** Read a value from the meta key/value table. */
+  getMeta(key: string): string | null {
+    const db = getDatabase(this.projectRoot);
+    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined;
+    return row?.value ?? null;
+  }
+
+  /** Write a value to the meta key/value table. */
+  setMeta(key: string, value: string): void {
+    const db = getDatabase(this.projectRoot);
+    db.prepare(
+      `INSERT INTO meta (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ).run(key, value);
+  }
+
+  /**
+   * Drop all cached summaries while keeping hashes and timestamps. Used when
+   * the summarizer implementation changes: change detection stays intact and
+   * summaries regenerate lazily on next access.
+   */
+  clearAllSummaries(): void {
+    const db = getDatabase(this.projectRoot);
+    db.prepare('UPDATE files SET summary_json = NULL').run();
+  }
+
   getStaleEntries(maxAge: number): CacheEntry[] {
     const db = getDatabase(this.projectRoot);
     const cutoff = Date.now() - maxAge;

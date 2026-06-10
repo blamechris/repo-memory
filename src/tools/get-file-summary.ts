@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hashContents } from '../cache/hash.js';
 import { CacheStore } from '../cache/store.js';
-import { summarizeFile } from '../indexer/summarizer.js';
+import { summarizeForProject, ensureSummaryGeneration } from '../indexer/summarize.js';
 import { TelemetryTracker } from '../telemetry/tracker.js';
 import { estimateTokensSaved } from '../telemetry/tokens.js';
 import type { FileSummary } from '../types.js';
@@ -23,6 +23,7 @@ export async function getFileSummary(
   relativePath: string,
 ): Promise<FileSummaryResult> {
   relativePath = validatePath(projectRoot, relativePath);
+  ensureSummaryGeneration(projectRoot);
   const store = new CacheStore(projectRoot);
   const absolutePath = join(projectRoot, relativePath);
 
@@ -54,7 +55,7 @@ export async function getFileSummary(
   }
 
   // Generate fresh summary
-  const summary = summarizeFile(relativePath, contents);
+  const summary = await summarizeForProject(projectRoot, relativePath, contents);
   store.setEntry(relativePath, currentHash, summary);
 
   let reason: string;
