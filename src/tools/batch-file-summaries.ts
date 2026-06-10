@@ -3,7 +3,6 @@ import { validatePath } from '../utils/validate-path.js';
 
 export interface BatchFileSummariesResult {
   results: FileSummaryResult[];
-  totalFiles: number;
   cacheHits: number;
   cacheMisses: number;
   errors: Array<{ path: string; error: string }>;
@@ -31,5 +30,5 @@ export async function batchFileSummaries(
     }
   }
 
-  return { results, totalFiles: paths.length, cacheHits, cacheMisses, errors };
+  return { results, cacheHits, cacheMisses, errors };
 }

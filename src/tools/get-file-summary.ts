@@ -12,11 +12,10 @@ import { validatePath } from '../utils/validate-path.js';
 
 export interface FileSummaryResult {
   path: string;
-  hash: string;
   summary: FileSummary;
   fromCache: boolean;
-  reason: string;
-  cacheAge: number | null;
+  /** Seconds since the cached entry was last validated; only present on cache hits. */
+  cacheAge?: number;
   suggestFullRead: boolean;
 }
 
@@ -46,9 +45,6 @@ export async function getFileSummary(
 
   // Check cache
   const cached = store.getEntry(relativePath);
-  const cacheAge = cached
-    ? Math.floor((Date.now() - cached.lastChecked) / 1000)
-    : null;
 
   const tracker = new TelemetryTracker(projectRoot);
 
@@ -60,11 +56,9 @@ export async function getFileSummary(
 
     return {
       path: relativePath,
-      hash: currentHash,
       summary: cached.summary,
       fromCache: true,
-      reason: 'cache_hit: hash unchanged',
-      cacheAge,
+      cacheAge: Math.floor((Date.now() - cached.lastChecked) / 1000),
       suggestFullRead: cached.summary.confidence === 'low',
     };
   }
@@ -82,26 +76,14 @@ export async function getFileSummary(
   }
   store.setEntry(relativePath, currentHash, summary);
 
-  let reason: string;
-  if (!cached) {
-    reason = 'cache_miss: no prior entry';
-  } else if (cached.hash !== currentHash) {
-    reason = 'cache_miss: hash changed';
-  } else {
-    reason = 'cache_miss: no summary in cache';
-  }
-
   if (trackTelemetry) {
     tracker.trackEvent('cache_miss', relativePath, 0);
   }
 
   return {
     path: relativePath,
-    hash: currentHash,
     summary,
     fromCache: false,
-    reason,
-    cacheAge,
     suggestFullRead: summary.confidence === 'low',
   };
 }

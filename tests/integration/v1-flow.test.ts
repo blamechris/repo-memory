@@ -80,12 +80,10 @@ describe('V1 end-to-end flow', () => {
     expect(summary1.summary.purpose).toBe('entry point: function main'); // AST default
     expect(summary1.summary.exports).toContain('main');
     expect(summary1.summary.imports).toContain('./utils/greet.js');
-    expect(summary1.hash).toHaveLength(64);
 
     // Step 3: Get same file summary again — cache hit
     const summary2 = await getFileSummary(projectDir, 'src/index.ts');
     expect(summary2.fromCache).toBe(true);
-    expect(summary2.hash).toBe(summary1.hash);
     expect(summary2.summary).toEqual(summary1.summary);
 
     // Step 4: Modify a file

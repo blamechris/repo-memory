@@ -8,11 +8,9 @@ import type { FileSummary } from '../types.js';
 
 export interface DirectoryNode {
   name: string;
-  path: string;
   files: Array<{
     name: string;
     purpose: string;
-    size: number;
   }>;
   children: DirectoryNode[];
   fileCount: number;
@@ -76,7 +74,6 @@ function buildTree(
 ): DirectoryNode {
   const root: DirectoryNode = {
     name: rootName,
-    path: '.',
     files: [],
     children: [],
     fileCount: 0,
@@ -99,7 +96,6 @@ function buildTree(
 
     const node: DirectoryNode = {
       name: basename(dirPath),
-      path: dirPath,
       files: [],
       children: [],
       fileCount: 0,
@@ -123,7 +119,6 @@ function buildTree(
     dir.files.push({
       name,
       purpose: entry.summary.purpose,
-      size: entry.size,
     });
   }
 

@@ -134,7 +134,7 @@ describe('persisted graph freshness', () => {
     rmSync(join(tempDir, 'src', 'util.ts'));
 
     const result = await getDependencyGraphTool(tempDir, 'src/helper.ts', 'dependencies');
-    expect(result.nodes).not.toContain('src/util.ts');
+    expect(result.deps!['src/helper.ts']).not.toContain('src/util.ts');
     expect(edgeCount('src/util.ts')).toBe(0);
   });
 
@@ -149,7 +149,7 @@ describe('persisted graph freshness', () => {
     rmSync(join(tempDir, 'src', 'extra.ts'));
 
     const result = await getDependencyGraphTool(tempDir, 'src/util.ts', 'dependents');
-    expect(result.nodes).not.toContain('src/extra.ts');
+    expect(result.dependents!['src/util.ts']).not.toContain('src/extra.ts');
     expect(edgeCount('src/extra.ts')).toBe(0);
   });
 });

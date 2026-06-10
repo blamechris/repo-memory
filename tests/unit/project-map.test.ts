@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { buildProjectMap } from '../../src/indexer/project-map.js';
+import { getProjectMap } from '../../src/tools/get-project-map.js';
 import { closeDatabase } from '../../src/persistence/db.js';
 
 function createTempProject(): string {
@@ -62,10 +63,22 @@ describe('buildProjectMap', () => {
   it('should build directory tree with correct structure', async () => {
     const map = await buildProjectMap(tempDir);
 
-    expect(map.tree.path).toBe('.');
     const childNames = map.tree.children.map((c) => c.name).sort();
     expect(childNames).toContain('docs');
     expect(childNames).toContain('src');
+  });
+
+  it('should omit derivable path from directory nodes', async () => {
+    const map = await buildProjectMap(tempDir);
+
+    function collectNodes(node: typeof map.tree): Array<typeof map.tree> {
+      return [node, ...node.children.flatMap(collectNodes)];
+    }
+
+    for (const node of collectNodes(map.tree)) {
+      expect(node).not.toHaveProperty('path');
+      expect(Object.keys(node).sort()).toEqual(['children', 'fileCount', 'files', 'name']);
+    }
   });
 
   it('should identify entry points', async () => {
@@ -96,7 +109,7 @@ describe('buildProjectMap', () => {
     expect(map.tree.fileCount).toBe(9);
   });
 
-  it('should include only name, purpose, and size on file entries', async () => {
+  it('should include only name and purpose on file entries', async () => {
     const map = await buildProjectMap(tempDir);
 
     // Collect all file entries from the tree
@@ -112,10 +125,9 @@ describe('buildProjectMap', () => {
     expect(allFiles.length).toBeGreaterThan(0);
 
     for (const file of allFiles) {
-      expect(file.size).toBeGreaterThan(0);
       expect(typeof file.name).toBe('string');
       expect(typeof file.purpose).toBe('string');
-      expect(Object.keys(file).sort()).toEqual(['name', 'purpose', 'size']);
+      expect(Object.keys(file).sort()).toEqual(['name', 'purpose']);
     }
   });
 
@@ -134,6 +146,30 @@ describe('buildProjectMap', () => {
     }
 
     expect(collectNames(map.tree)).not.toContain('.gitkeep');
+  });
+
+  it('tool layer defaults depth to 2 when not provided', async () => {
+    // Add a depth-3 directory; the default map must cut it off.
+    mkdirSync(join(tempDir, 'src', 'deep', 'deeper'), { recursive: true });
+    writeFileSync(join(tempDir, 'src', 'deep', 'marker.ts'), 'export const marker = 1;\n');
+    writeFileSync(
+      join(tempDir, 'src', 'deep', 'deeper', 'buried.ts'),
+      'export const buried = true;\n',
+    );
+
+    const map = await getProjectMap(tempDir);
+
+    const srcNode = map.tree.children.find((c) => c.name === 'src');
+    const deepNode = srcNode!.children.find((c) => c.name === 'deep');
+    expect(deepNode).toBeDefined(); // depth 2 is included
+    expect(deepNode!.children).toHaveLength(0); // depth 3 is cut off by the default
+
+    // An explicit depth still wins over the default.
+    const deepMap = await getProjectMap(tempDir, 3);
+    const explicitDeep = deepMap.tree.children
+      .find((c) => c.name === 'src')!
+      .children.find((c) => c.name === 'deep')!;
+    expect(explicitDeep.children.map((c) => c.name)).toContain('deeper');
   });
 
   it('should reuse cached summaries on repeated calls', async () => {
