@@ -54,6 +54,12 @@ describe.skipIf(process.platform === 'win32')('performance budgets', () => {
       },
     );
 
+    // Warm up the summarizer first: the budget guards steady-state latency,
+    // and the first AST parse in a worker pays one-time tree-sitter WASM
+    // startup, which on contended CI runners alone can exceed the budget.
+    writeFileSync(join(tempDir, 'src/warmup.ts'), 'export const warm = 1;\n', 'utf-8');
+    await getFileSummary(tempDir, 'src/warmup.ts');
+
     const start = performance.now();
     await getFileSummary(tempDir, 'src/test.ts');
     const elapsed = performance.now() - start;
