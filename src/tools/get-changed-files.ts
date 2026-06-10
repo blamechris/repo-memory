@@ -42,8 +42,12 @@ export async function getChangedFiles(
         }
       }
 
-      // Update the cache entry with current hash and timestamp
-      store.setEntry(relativePath, currentHash, cached?.summary ?? null);
+      // Update the cache entry with current hash and timestamp. A summary may
+      // only be stored under the hash it was computed from — when the file
+      // changed, store null so the summary regenerates on next access instead
+      // of masquerading as a fresh cache hit.
+      const summaryStillValid = cached !== undefined && cached.hash === currentHash;
+      store.setEntry(relativePath, currentHash, summaryStillValid ? cached.summary : null);
     }),
   );
 

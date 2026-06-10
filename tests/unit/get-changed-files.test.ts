@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getChangedFiles } from '../../src/tools/get-changed-files.js';
+import { getFileSummary } from '../../src/tools/get-file-summary.js';
 import { closeDatabase } from '../../src/persistence/db.js';
 
 describe('getChangedFiles', () => {
@@ -67,6 +68,26 @@ describe('getChangedFiles', () => {
 
     expect(result.deleted).toEqual(['b.ts']);
     expect(result.added).toEqual([]);
+  });
+
+  it('never serves a stale summary after a changed file is detected', async () => {
+    writeFileSync(join(tempDir, 'a.ts'), 'export const a = 1;');
+    execFileSync('git', ['add', '.'], { cwd: tempDir });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: tempDir });
+
+    // Cache a summary for the original content.
+    const original = await getFileSummary(tempDir, 'a.ts');
+    expect(original.summary.exports).toEqual(['a']);
+
+    // Change the file, then run change detection (the post-merge pattern).
+    writeFileSync(join(tempDir, 'a.ts'), 'export const renamed = 2;');
+    const changes = await getChangedFiles(tempDir);
+    expect(changes.changed).toEqual(['a.ts']);
+
+    // The summary must regenerate — a cache hit here would be poisoned data.
+    const after = await getFileSummary(tempDir, 'a.ts');
+    expect(after.fromCache).toBe(false);
+    expect(after.summary.exports).toEqual(['renamed']);
   });
 
   it('should not report unchanged files in any list', async () => {
