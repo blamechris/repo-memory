@@ -337,11 +337,15 @@ async function main() {
 }
 
 // Subcommand dispatch: `repo-memory index [projectRoot]` prewarms the summary
-// cache and exits. Anything else starts the MCP server on stdio, where stdout
-// is reserved for the protocol channel.
+// cache and exits; `repo-memory report [projectRoot]` prints the telemetry
+// report and exits. Anything else starts the MCP server on stdio, where
+// stdout is reserved for the protocol channel.
 if (process.argv[2] === 'index') {
   const { runIndexCli } = await import('./cli/index-command.js');
   await runIndexCli(process.argv.slice(3));
+} else if (process.argv[2] === 'report') {
+  const { runReportCli } = await import('./cli/report-command.js');
+  await runReportCli(process.argv.slice(3));
 } else {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
