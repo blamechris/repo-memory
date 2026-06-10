@@ -77,7 +77,7 @@ describe('V1 end-to-end flow', () => {
     // Step 2: Get file summary — cache hit (project map already cached it)
     const summary1 = await getFileSummary(projectDir, 'src/index.ts');
     expect(summary1.fromCache).toBe(true);
-    expect(summary1.summary.purpose).toBe('entry point');
+    expect(summary1.summary.purpose).toBe('entry point: function main'); // AST default
     expect(summary1.summary.exports).toContain('main');
     expect(summary1.summary.imports).toContain('./utils/greet.js');
     expect(summary1.hash).toHaveLength(64);
@@ -137,7 +137,7 @@ describe('V1 end-to-end flow', () => {
     // Step 10: After invalidation, next get_file_summary regenerates
     const summary4 = await getFileSummary(projectDir, 'src/index.ts');
     expect(summary4.fromCache).toBe(false);
-    expect(summary4.summary.purpose).toBe('entry point');
+    expect(summary4.summary.purpose).toBe('entry point: function main'); // AST default
   });
 
   it('detects new and deleted files via get_changed_files', async () => {

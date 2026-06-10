@@ -27,7 +27,7 @@ describe('getFileSummary', () => {
     expect(result.path).toBe(filePath);
     expect(result.hash).toBeTypeOf('string');
     expect(result.hash.length).toBe(64); // SHA-256 hex
-    expect(result.summary.purpose).toBe('source');
+    expect(result.summary.purpose).toBe('function hello'); // AST default
     expect(result.summary.exports).toContain('hello');
     expect(result.summary.lineCount).toBe(4);
     expect(result.reason).toBe('cache_miss: no prior entry');
