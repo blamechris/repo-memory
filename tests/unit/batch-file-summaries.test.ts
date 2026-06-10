@@ -52,13 +52,14 @@ describe('batchFileSummaries', () => {
     expect(result.results[2].summary.exports).toContain('Gamma');
   });
 
-  it('returns correct totalFiles count', async () => {
+  it('omits the totalFiles echo from the response', async () => {
     const result = await batchFileSummaries(tempDir, [
       'src/alpha.ts',
       'src/beta.ts',
     ]);
 
-    expect(result.totalFiles).toBe(2);
+    expect(result).not.toHaveProperty('totalFiles');
+    expect(Object.keys(result).sort()).toEqual(['cacheHits', 'cacheMisses', 'errors', 'results']);
   });
 
   it('reports cache hits vs misses', async () => {
@@ -96,8 +97,5 @@ describe('batchFileSummaries', () => {
     expect(result.errors).toHaveLength(2);
     expect(result.errors[0].path).toBe('nonexistent.ts');
     expect(result.errors[1].path).toBe('../../../etc/passwd');
-
-    // totalFiles still reflects all requested paths
-    expect(result.totalFiles).toBe(3);
   });
 });

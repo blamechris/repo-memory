@@ -59,7 +59,6 @@ describe('searchByPurpose', () => {
     expect(result.results.length).toBeGreaterThanOrEqual(1);
     const entryResult = result.results.find(r => r.path === 'src/index.ts');
     expect(entryResult).toBeDefined();
-    expect(entryResult!.matchedOn).toContain('purpose');
   });
 
   it('matches on exports field', async () => {
@@ -67,7 +66,6 @@ describe('searchByPurpose', () => {
     expect(result.results.length).toBeGreaterThanOrEqual(1);
     const matched = result.results.find(r => r.path === 'src/auth/middleware.ts');
     expect(matched).toBeDefined();
-    expect(matched!.matchedOn).toContain('exports');
   });
 
   it('matches on declarations field', async () => {
@@ -75,20 +73,15 @@ describe('searchByPurpose', () => {
     expect(result.results.length).toBeGreaterThanOrEqual(1);
     const matched = result.results.find(r => r.path === 'src/db/connection.ts');
     expect(matched).toBeDefined();
-    expect(matched!.matchedOn).toContain('declarations');
   });
 
-  it('returns matchedOn array correctly with multiple field matches', async () => {
-    // "validate" should match exports like validateToken, validateEmail, validatePassword
-    // and declarations with the same names
+  it('omits the query echo and matchedOn debug metadata from the response', async () => {
     const result = await searchByPurpose(tempDir, 'validate');
     expect(result.results.length).toBeGreaterThanOrEqual(1);
+    expect(result).not.toHaveProperty('query');
     for (const r of result.results) {
-      expect(r.matchedOn.length).toBeGreaterThanOrEqual(1);
-      // Each matchedOn entry should be one of the valid field names
-      for (const field of r.matchedOn) {
-        expect(['purpose', 'exports', 'declarations']).toContain(field);
-      }
+      expect(r).not.toHaveProperty('matchedOn');
+      expect(Object.keys(r).sort()).toEqual(['confidence', 'exports', 'path', 'purpose']);
     }
   });
 
@@ -101,7 +94,6 @@ describe('searchByPurpose', () => {
   it('returns empty results for no matches', async () => {
     const result = await searchByPurpose(tempDir, 'xyznonexistent');
     expect(result.results).toEqual([]);
-    expect(result.query).toBe('xyznonexistent');
     expect(result.totalCached).toBeGreaterThan(0);
   });
 
@@ -117,11 +109,6 @@ describe('searchByPurpose', () => {
   it('returns totalCached count', async () => {
     const result = await searchByPurpose(tempDir, 'source');
     expect(result.totalCached).toBe(5);
-  });
-
-  it('returns query in result', async () => {
-    const result = await searchByPurpose(tempDir, 'database');
-    expect(result.query).toBe('database');
   });
 
   it('uses default limit of 20', async () => {
@@ -217,6 +204,27 @@ describe('searchByPurpose', () => {
     const a = await searchByPurpose(tempDir, 'database', undefined, 'src\\db');
     expect(a.scope).toBe('src/db');
     expect(a.results.every(r => r.path.startsWith('src/db/'))).toBe(true);
+  });
+
+  it('caps exports at 5 per result and reports the total via exportsTruncated', async () => {
+    const manyExports = Array.from(
+      { length: 8 },
+      (_, i) => `export function searchableThing${i}() {}`,
+    ).join('\n');
+    await writeFile(join(tempDir, 'src/many-exports.ts'), `${manyExports}\n`);
+    await getFileSummary(tempDir, 'src/many-exports.ts');
+
+    const result = await searchByPurpose(tempDir, 'searchableThing');
+    const matched = result.results.find(r => r.path === 'src/many-exports.ts');
+    expect(matched).toBeDefined();
+    expect(matched!.exports).toHaveLength(5);
+    expect(matched!.exportsTruncated).toBe(8);
+
+    // Results with 5 or fewer exports carry no truncation marker.
+    const small = await searchByPurpose(tempDir, 'authMiddleware');
+    const smallMatch = small.results.find(r => r.path === 'src/auth/middleware.ts');
+    expect(smallMatch!.exports.length).toBeLessThanOrEqual(5);
+    expect(smallMatch!.exportsTruncated).toBeUndefined();
   });
 });
 

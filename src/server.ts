@@ -38,13 +38,16 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
   server.registerTool('get_project_map', {
     title: 'Get Project Map',
     description:
-      'Returns a structural overview of the project including directory tree, entry points, and key modules.',
+      'Returns a structural overview of the project including directory tree, entry points, and key modules. Depth defaults to 2; pass a larger depth only when you need deeper structure.',
     inputSchema: {
-      project_root: z.string().describe('Absolute path to the project root'),
-      depth: z.number().optional().describe('Max directory depth to include'),
+      project_root: z
+        .string()
+        .optional()
+        .describe('Absolute path to the project root (default: current working directory)'),
+      depth: z.number().optional().describe('Max directory depth to include (default: 2)'),
     },
   }, async ({ project_root, depth }) => {
-    const projectMap = await getProjectMap(project_root, depth);
+    const projectMap = await getProjectMap(project_root ?? process.cwd(), depth);
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(projectMap) }],
     };
@@ -53,7 +56,7 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
   server.registerTool('get_related_files', {
     title: 'Get Related Files',
     description:
-      'Returns files related to the given file, ranked by dependency proximity and relevance. Useful for finding what else to look at when exploring a file.',
+      'Returns files related to the given file, ranked by dependency proximity and relevance. One call replaces grepping for imports and grepping for usages separately.',
     inputSchema: {
       path: z.string().describe('File path relative to project root'),
       limit: z.number().optional().describe('Max results (default: 10)'),
@@ -70,19 +73,23 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
   server.registerTool('get_dependency_graph', {
     title: 'Get Dependency Graph',
     description:
-      'Returns dependency graph information. If a path is given, returns its dependencies/dependents. If no path, returns a summary of the most connected files.',
+      'Returns dependency graph information as adjacency maps. If a path is given, returns its dependencies/dependents. Calling without a path returns a large whole-repo summary of the most connected files — prefer passing a path.',
     inputSchema: {
-      path: z.string().optional().describe('File path to query, or omit for full graph summary'),
+      path: z.string().optional().describe('File path to query; omit only when you want a whole-repo summary'),
       direction: z
         .enum(['dependencies', 'dependents', 'both'])
         .optional()
         .describe('Query direction (default: both)'),
       depth: z.number().optional().describe('Max traversal depth'),
       symbol: z.string().optional().describe('Filter edges by import specifier (e.g., "UserService")'),
+      limit: z
+        .number()
+        .optional()
+        .describe('No-path summary mode only: max files included (default: 50)'),
     },
-  }, async ({ path, direction, depth, symbol }) => {
+  }, async ({ path, direction, depth, symbol, limit }) => {
     const projectRoot = process.cwd();
-    const result = await getDependencyGraphTool(projectRoot, path, direction, depth, symbol);
+    const result = await getDependencyGraphTool(projectRoot, path, direction, depth, symbol, limit);
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
     };
@@ -170,7 +177,7 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
 
     server.registerTool('search_by_purpose', {
       title: 'Search By Purpose',
-      description: 'Search cached file summaries by keyword. Matches against file purpose, exports, and declarations. Requires files to have been previously summarized. Optionally scope to a directory with pathPrefix.',
+      description: 'Find files by what they do when you don\'t know filenames — prefer this over grep for concept searches ("where is auth handled"). Matches against file purpose, exports, and declarations. Check totalCached > 0 in the response; if 0, warm the cache with `repo-memory index` first. Optionally scope to a directory with pathPrefix.',
       inputSchema: {
         query: z.string().describe('Search keywords (e.g., "database", "auth middleware", "validation")'),
         limit: z.number().optional().describe('Max results (default: 20)'),

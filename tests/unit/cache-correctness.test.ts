@@ -51,15 +51,16 @@ describe('Cache correctness regression tests', () => {
     // Second call — cache hit
     const result2 = await getFileSummary(tmpDir, filePath);
     expect(result2.fromCache).toBe(true);
-    expect(result2.hash).toBe(result1.hash);
+    expect(result2.summary).toEqual(result1.summary);
 
     // Modify the file
     writeFileSync(absPath, 'export const a = 2;\n');
 
-    // Third call — should detect change
+    // Third call — should detect change and store the new hash
     const result3 = await getFileSummary(tmpDir, filePath);
     expect(result3.fromCache).toBe(false);
-    expect(result3.hash).not.toBe(result1.hash);
+    const entry = new CacheStore(tmpDir).getEntry(filePath);
+    expect(entry!.hash).toBe(hashContents('export const a = 2;\n'));
   });
 
   it('should handle file deleted after caching', async () => {
@@ -131,12 +132,12 @@ describe('Cache correctness regression tests', () => {
     // Cache has result2's hash, so this is a miss that regenerates and updates cache
     const result3 = await getFileSummary(tmpDir, filePath);
     expect(result3.fromCache).toBe(false);
-    expect(result3.hash).toBe(result1.hash);
+    expect(result3.summary).toEqual(result1.summary);
 
     // Now the cache has the original hash+summary again — this should be a hit
     const result4 = await getFileSummary(tmpDir, filePath);
     expect(result4.fromCache).toBe(true);
-    expect(result4.hash).toBe(result1.hash);
+    expect(result4.summary).toEqual(result1.summary);
   });
 
   it('should handle empty files gracefully', async () => {
@@ -149,7 +150,7 @@ describe('Cache correctness regression tests', () => {
     const result = await getFileSummary(tmpDir, filePath);
     expect(result.summary.lineCount).toBe(0);
     expect(result.fromCache).toBe(false);
-    expect(result.hash).toBeTruthy();
+    expect(new CacheStore(tmpDir).getEntry(filePath)!.hash).toBeTruthy();
   });
 
   it('should hash binary files without crashing', async () => {
@@ -196,25 +197,25 @@ describe('Cache correctness regression tests', () => {
     writeFileSync(absPath, 'export const v = 1;\n');
     addAndCommit(tmpDir, [filePath]);
 
+    const store = new CacheStore(tmpDir);
+
     // First modification
     writeFileSync(absPath, 'export const v = 2;\n');
     const result1 = await getFileSummary(tmpDir, filePath);
-    const hash1 = result1.hash;
+    expect(result1.fromCache).toBe(false);
+    expect(store.getEntry(filePath)!.hash).toBe(hashContents('export const v = 2;\n'));
 
     // Second modification
     writeFileSync(absPath, 'export const v = 3;\n');
     const result2 = await getFileSummary(tmpDir, filePath);
-    const hash2 = result2.hash;
-
-    // Each should have a different hash
-    expect(hash1).not.toBe(hash2);
     expect(result2.fromCache).toBe(false);
+    expect(store.getEntry(filePath)!.hash).toBe(hashContents('export const v = 3;\n'));
 
     // Third modification
     writeFileSync(absPath, 'export const v = 4;\n');
     const result3 = await getFileSummary(tmpDir, filePath);
-    expect(result3.hash).not.toBe(hash2);
     expect(result3.fromCache).toBe(false);
+    expect(store.getEntry(filePath)!.hash).toBe(hashContents('export const v = 4;\n'));
   });
 
   it('should regenerate summary when cache entry has no summary', async () => {

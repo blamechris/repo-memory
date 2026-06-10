@@ -88,8 +88,8 @@ describe('V2 end-to-end flow', () => {
       'src/index.ts',
       'dependencies',
     );
-    expect(graphResult.nodes).toContain('src/index.ts');
-    expect(graphResult.edges.length).toBeGreaterThan(0);
+    expect(Object.keys(graphResult.deps!)).toContain('src/index.ts');
+    expect(graphResult.deps!['src/index.ts'].length).toBeGreaterThan(0);
 
     // Step 3: Create a task for investigating a bug
     const task = createTaskTool(projectDir, 'Investigate user validation bug');
@@ -136,7 +136,7 @@ describe('V2 end-to-end flow', () => {
       'dependents',
     );
     // user.ts depends on validate
-    expect(impactGraph.nodes).toContain('src/services/user.ts');
+    expect(impactGraph.dependents!['src/utils/validate.ts']).toContain('src/services/user.ts');
   });
 
   it('cross-turn: task state persists after database restart', async () => {

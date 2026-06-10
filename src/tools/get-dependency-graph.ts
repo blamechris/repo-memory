@@ -2,14 +2,22 @@ import { DependencyGraph } from '../graph/dependency-graph.js';
 import { loadFreshGraph } from '../graph/refresh.js';
 import { validatePath } from '../utils/validate-path.js';
 
+/** Default number of files included in the no-path whole-repo summary. */
+const DEFAULT_SUMMARY_LIMIT = 50;
+
 export interface DependencyGraphResult {
-  nodes: string[];
-  edges: Array<{ from: string; to: string }>;
+  /** Adjacency map: file -> files it imports (present when direction includes dependencies). */
+  deps?: Record<string, string[]>;
+  /** Adjacency map: file -> files that import it (present when direction includes dependents). */
+  dependents?: Record<string, string[]>;
   stats: {
     totalFiles: number;
     totalEdges: number;
-    mostConnected: Array<{ path: string; connections: number }>;
+    /** Only present in the no-path whole-repo summary mode. */
+    mostConnected?: Array<{ path: string; connections: number }>;
   };
+  /** True when the no-path summary was capped by `limit`; stats carry whole-graph totals. */
+  truncated?: boolean;
 }
 
 export async function getDependencyGraphTool(
@@ -18,6 +26,7 @@ export async function getDependencyGraphTool(
   direction?: 'dependencies' | 'dependents' | 'both',
   depth?: number,
   symbol?: string,
+  limit?: number,
 ): Promise<DependencyGraphResult> {
   if (path) {
     path = validatePath(projectRoot, path);
@@ -33,7 +42,7 @@ export async function getDependencyGraphTool(
     return getNeighborhood(graph, path, direction ?? 'both', depth);
   }
 
-  return getFullSummary(graph);
+  return getFullSummary(graph, limit ?? DEFAULT_SUMMARY_LIMIT);
 }
 
 function getNeighborhood(
@@ -42,39 +51,30 @@ function getNeighborhood(
   direction: 'dependencies' | 'dependents' | 'both',
   depth?: number,
 ): DependencyGraphResult {
-  const nodes = new Set<string>();
-  const edges: Array<{ from: string; to: string }> = [];
-  nodes.add(path);
+  const files = new Set<string>([path]);
+  let totalEdges = 0;
+  const result: DependencyGraphResult = { stats: { totalFiles: 0, totalEdges: 0 } };
 
   if (direction === 'dependencies' || direction === 'both') {
-    const deps = depth !== undefined
+    const targets = depth !== undefined
       ? graph.getTransitiveDependencies(path, depth)
       : graph.getDependencies(path);
-    for (const dep of deps) {
-      nodes.add(dep);
-      edges.push({ from: path, to: dep });
-    }
+    for (const target of targets) files.add(target);
+    totalEdges += targets.length;
+    result.deps = { [path]: [...targets].sort() };
   }
 
   if (direction === 'dependents' || direction === 'both') {
-    const deps = depth !== undefined
+    const sources = depth !== undefined
       ? graph.getTransitiveDependents(path, depth)
       : graph.getDependents(path);
-    for (const dep of deps) {
-      nodes.add(dep);
-      edges.push({ from: dep, to: path });
-    }
+    for (const source of sources) files.add(source);
+    totalEdges += sources.length;
+    result.dependents = { [path]: [...sources].sort() };
   }
 
-  return {
-    nodes: [...nodes].sort(),
-    edges,
-    stats: {
-      totalFiles: nodes.size,
-      totalEdges: edges.length,
-      mostConnected: graph.getMostConnected(5),
-    },
-  };
+  result.stats = { totalFiles: files.size, totalEdges };
+  return result;
 }
 
 function getSymbolEdges(
@@ -83,50 +83,50 @@ function getSymbolEdges(
   path?: string,
 ): DependencyGraphResult {
   const matchingEdges = graph.getEdgesBySymbol(symbol, path);
-  const nodes = new Set<string>();
-  const edges: Array<{ from: string; to: string }> = [];
+  const files = new Set<string>();
+  const deps: Record<string, string[]> = {};
 
   for (const edge of matchingEdges) {
-    nodes.add(edge.source);
-    nodes.add(edge.target);
-    edges.push({ from: edge.source, to: edge.target });
+    files.add(edge.source);
+    files.add(edge.target);
+    (deps[edge.source] ??= []).push(edge.target);
+  }
+  for (const source of Object.keys(deps)) {
+    deps[source].sort();
   }
 
   return {
-    nodes: [...nodes].sort(),
-    edges,
+    deps,
     stats: {
-      totalFiles: nodes.size,
-      totalEdges: edges.length,
-      mostConnected: graph.getMostConnected(5),
+      totalFiles: files.size,
+      totalEdges: matchingEdges.length,
     },
   };
 }
 
-function getFullSummary(graph: DependencyGraph): DependencyGraphResult {
-  const mostConnected = graph.getMostConnected(10);
-  const allNodes = new Set<string>();
-  const edges: Array<{ from: string; to: string }> = [];
-
-  for (const entry of mostConnected) {
-    allNodes.add(entry.path);
-    for (const dep of graph.getDependencies(entry.path)) {
-      allNodes.add(dep);
-      edges.push({ from: entry.path, to: dep });
-    }
-    for (const dep of graph.getDependents(entry.path)) {
-      allNodes.add(dep);
-      edges.push({ from: dep, to: entry.path });
-    }
+function getFullSummary(graph: DependencyGraph, limit: number): DependencyGraphResult {
+  // Rank every node by connectivity; the summary covers the top `limit`.
+  const ranked = graph.getMostConnected(Number.MAX_SAFE_INTEGER);
+  const totalFiles = ranked.length;
+  let totalEdges = 0;
+  for (const { path } of ranked) {
+    totalEdges += graph.getDependencies(path).length;
   }
 
+  const included = ranked.slice(0, Math.max(0, limit));
+  const deps: Record<string, string[]> = {};
+  for (const { path } of included) {
+    deps[path] = graph.getDependencies(path).sort();
+  }
+
+  const truncated = totalFiles > included.length;
   return {
-    nodes: [...allNodes].sort(),
-    edges,
+    deps,
     stats: {
-      totalFiles: allNodes.size,
-      totalEdges: edges.length,
-      mostConnected,
+      totalFiles,
+      totalEdges,
+      mostConnected: graph.getMostConnected(10),
     },
+    ...(truncated ? { truncated: true } : {}),
   };
 }

@@ -29,31 +29,65 @@ describe('getDependencyGraphTool', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('returns dependencies for a single file', async () => {
+  it('returns dependencies for a single file as an adjacency map', async () => {
     const result = await getDependencyGraphTool(tempDir, 'src/index.ts', 'dependencies');
-    expect(result.nodes).toContain('src/index.ts');
-    expect(result.nodes).toContain('src/helper.ts');
-    expect(result.edges.some((e) => e.from === 'src/index.ts' && e.to === 'src/helper.ts')).toBe(true);
+    expect(result.deps).toEqual({ 'src/index.ts': ['src/helper.ts'] });
+    expect(result.dependents).toBeUndefined();
+    expect(result).not.toHaveProperty('nodes');
+    expect(result).not.toHaveProperty('edges');
   });
 
-  it('returns dependents for a single file', async () => {
+  it('returns dependents for a single file as an adjacency map', async () => {
     const result = await getDependencyGraphTool(tempDir, 'src/helper.ts', 'dependents');
-    expect(result.nodes).toContain('src/index.ts');
+    expect(result.dependents).toEqual({ 'src/helper.ts': ['src/index.ts'] });
+    expect(result.deps).toBeUndefined();
+  });
+
+  it('returns both maps for direction=both (the default)', async () => {
+    const result = await getDependencyGraphTool(tempDir, 'src/helper.ts');
+    expect(result.deps).toEqual({ 'src/helper.ts': ['src/util.ts'] });
+    expect(result.dependents).toEqual({ 'src/helper.ts': ['src/index.ts'] });
+    expect(result.stats.totalFiles).toBe(3);
+    expect(result.stats.totalEdges).toBe(2);
+  });
+
+  it('omits mostConnected for path-scoped queries', async () => {
+    const result = await getDependencyGraphTool(tempDir, 'src/index.ts');
+    expect(result.stats.mostConnected).toBeUndefined();
   });
 
   it('returns full summary when no path given', async () => {
     const result = await getDependencyGraphTool(tempDir);
-    expect(result.stats.mostConnected.length).toBeGreaterThan(0);
-    expect(result.nodes.length).toBeGreaterThan(0);
+    expect(result.stats.mostConnected!.length).toBeGreaterThan(0);
+    expect(Object.keys(result.deps!).length).toBeGreaterThan(0);
+    expect(result).not.toHaveProperty('nodes');
+    expect(result).not.toHaveProperty('edges');
+    expect(result.truncated).toBeUndefined(); // 3 files fit well under the default limit
+  });
+
+  it('caps the no-path summary at limit and flags truncation with whole-graph totals', async () => {
+    const result = await getDependencyGraphTool(
+      tempDir,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      1,
+    );
+    expect(Object.keys(result.deps!)).toHaveLength(1);
+    expect(result.truncated).toBe(true);
+    expect(result.stats.totalFiles).toBe(3); // whole-graph count, not the capped count
+    expect(result.stats.totalEdges).toBe(2);
   });
 
   it('respects depth parameter', async () => {
     const result = await getDependencyGraphTool(tempDir, 'src/index.ts', 'dependencies', 1);
-    expect(result.nodes).toContain('src/helper.ts');
+    expect(result.deps!['src/index.ts']).toContain('src/helper.ts');
     // At depth 1, should not include transitive deps of helper
+    expect(result.deps!['src/index.ts']).not.toContain('src/util.ts');
   });
 
-  it('mostConnected and nodes contain only real repo files (no bare modules or phantoms)', async () => {
+  it('mostConnected and adjacency maps contain only real repo files (no bare modules or phantoms)', async () => {
     // A file with external imports must not introduce phantom graph nodes
     writeFileSync(
       join(tempDir, 'src', 'externals.ts'),
@@ -67,9 +101,13 @@ describe('getDependencyGraphTool', () => {
     );
 
     const result = await getDependencyGraphTool(tempDir);
-    expect(result.stats.mostConnected.length).toBeGreaterThan(0);
+    expect(result.stats.mostConnected!.length).toBeGreaterThan(0);
 
-    const allPaths = [...result.nodes, ...result.stats.mostConnected.map((m) => m.path)];
+    const allPaths = [
+      ...Object.keys(result.deps!),
+      ...Object.values(result.deps!).flat(),
+      ...result.stats.mostConnected!.map((m) => m.path),
+    ];
     for (const p of allPaths) {
       expect(existsSync(join(tempDir, p)), `${p} should be a real repo file`).toBe(true);
     }
@@ -83,32 +121,34 @@ describe('getDependencyGraphTool', () => {
   describe('symbol filter', () => {
     it('filters by symbol when path is given', async () => {
       const result = await getDependencyGraphTool(tempDir, 'src/index.ts', undefined, undefined, 'helper');
-      expect(result.edges).toEqual([{ from: 'src/index.ts', to: 'src/helper.ts' }]);
-      expect(result.nodes).toContain('src/index.ts');
-      expect(result.nodes).toContain('src/helper.ts');
+      expect(result.deps).toEqual({ 'src/index.ts': ['src/helper.ts'] });
+      expect(result.stats.totalFiles).toBe(2);
+      expect(result.stats.totalEdges).toBe(1);
+    });
+
+    it('omits mostConnected for symbol queries', async () => {
+      const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'helper');
+      expect(result.stats.mostConnected).toBeUndefined();
     });
 
     it('filters by symbol when path is NOT given (search all edges)', async () => {
       const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'util');
-      expect(result.edges.some((e) => e.from === 'src/helper.ts' && e.to === 'src/util.ts')).toBe(true);
-      expect(result.nodes).toContain('src/helper.ts');
-      expect(result.nodes).toContain('src/util.ts');
+      expect(result.deps!['src/helper.ts']).toContain('src/util.ts');
     });
 
     it('returns empty results for non-existent symbol', async () => {
       const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'NonExistent');
-      expect(result.nodes).toEqual([]);
-      expect(result.edges).toEqual([]);
+      expect(result.deps).toEqual({});
       expect(result.stats.totalFiles).toBe(0);
       expect(result.stats.totalEdges).toBe(0);
     });
 
     it('uses case-sensitive matching', async () => {
       const result = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'Helper');
-      expect(result.edges).toEqual([]);
+      expect(result.deps).toEqual({});
 
       const result2 = await getDependencyGraphTool(tempDir, undefined, undefined, undefined, 'helper');
-      expect(result2.edges.length).toBeGreaterThan(0);
+      expect(Object.keys(result2.deps!).length).toBeGreaterThan(0);
     });
   });
 });

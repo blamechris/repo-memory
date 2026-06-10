@@ -26,13 +26,27 @@ describe('getFileSummary', () => {
 
     expect(result.fromCache).toBe(false);
     expect(result.path).toBe(filePath);
-    expect(result.hash).toBeTypeOf('string');
-    expect(result.hash.length).toBe(64); // SHA-256 hex
     expect(result.summary.purpose).toBe('function hello'); // AST default
     expect(result.summary.exports).toContain('hello');
     expect(result.summary.lineCount).toBe(4);
-    expect(result.reason).toBe('cache_miss: no prior entry');
-    expect(result.cacheAge).toBeNull();
+    expect(result.cacheAge).toBeUndefined();
+  });
+
+  it('exposes only the slim response shape (no hash/reason debug fields)', async () => {
+    const filePath = 'src/example.ts';
+    await writeFile(join(tempDir, filePath), 'export const x = 1;\n', 'utf-8');
+
+    const miss = await getFileSummary(tempDir, filePath);
+    expect(miss).not.toHaveProperty('hash');
+    expect(miss).not.toHaveProperty('reason');
+    expect(miss).not.toHaveProperty('cacheAge'); // only present on cache hits
+    expect(Object.keys(miss).sort()).toEqual(['fromCache', 'path', 'suggestFullRead', 'summary']);
+
+    const hit = await getFileSummary(tempDir, filePath);
+    expect(hit.fromCache).toBe(true);
+    expect(hit).not.toHaveProperty('hash');
+    expect(hit).not.toHaveProperty('reason');
+    expect(hit.cacheAge).toBeTypeOf('number');
   });
 
   it('persists the file import edges when the summary regenerates', async () => {
@@ -61,9 +75,7 @@ describe('getFileSummary', () => {
 
     const second = await getFileSummary(tempDir, filePath);
     expect(second.fromCache).toBe(true);
-    expect(second.hash).toBe(first.hash);
     expect(second.summary).toEqual(first.summary);
-    expect(second.reason).toBe('cache_hit: hash unchanged');
     expect(second.cacheAge).toBeTypeOf('number');
     expect(second.cacheAge).toBeGreaterThanOrEqual(0);
   });
@@ -83,13 +95,10 @@ describe('getFileSummary', () => {
 
     const second = await getFileSummary(tempDir, filePath);
     expect(second.fromCache).toBe(false);
-    expect(second.hash).not.toBe(first.hash);
     expect(second.summary.exports).toContain('b');
     expect(second.summary.exports).toContain('c');
     expect(second.summary.exports).not.toContain('a');
-    expect(second.reason).toBe('cache_miss: hash changed');
-    expect(second.cacheAge).toBeTypeOf('number');
-    expect(second.cacheAge).toBeGreaterThanOrEqual(0);
+    expect(second.cacheAge).toBeUndefined();
   });
 
   it('throws when the file does not exist', async () => {

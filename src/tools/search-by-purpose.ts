@@ -7,16 +7,18 @@ import { TelemetryTracker } from '../telemetry/tracker.js';
 import type { CacheEntry, FileSummary } from '../types.js';
 import { toPosix } from '../utils/posix-path.js';
 
+/** Max exports listed per result; the rest collapse into `exportsTruncated`. */
+const MAX_EXPORTS_PER_RESULT = 5;
+
 export interface SearchResult {
   path: string;
   purpose: string;
-  matchedOn: string[]; // which fields matched: "purpose", "exports", "declarations"
-  exports: string[];
+  exports: string[]; // capped at MAX_EXPORTS_PER_RESULT
+  exportsTruncated?: number; // total export count, present only when `exports` was capped
   confidence: string;
 }
 
 export interface SearchByPurposeResult {
-  query: string;
   results: SearchResult[];
   totalCached: number;
   scope?: string; // present when results were restricted to a pathPrefix
@@ -175,14 +177,17 @@ export async function searchByPurpose(
   }
 
   return {
-    query,
-    results: served.map((c) => ({
-      path: c.entry.path,
-      purpose: c.summary.purpose,
-      matchedOn: c.matchedOn,
-      exports: c.summary.exports,
-      confidence: c.summary.confidence,
-    })),
+    results: served.map((c) => {
+      const exports = c.summary.exports;
+      const capped = exports.length > MAX_EXPORTS_PER_RESULT;
+      return {
+        path: c.entry.path,
+        purpose: c.summary.purpose,
+        exports: capped ? exports.slice(0, MAX_EXPORTS_PER_RESULT) : exports,
+        ...(capped ? { exportsTruncated: exports.length } : {}),
+        confidence: c.summary.confidence,
+      };
+    }),
     totalCached: entries.filter((e) => e.summary).length,
     ...(normalizedPrefix ? { scope: normalizedPrefix } : {}),
   };

@@ -53,7 +53,6 @@ Returns a cached summary of a file. If the file has not changed since last read,
 ```json
 {
   "path": "src/server.ts",
-  "hash": "a1b2c3d4e5f6...",
   "summary": {
     "purpose": "entry point",
     "exports": ["main"],
@@ -63,7 +62,6 @@ Returns a cached summary of a file. If the file has not changed since last read,
     "confidence": "high"
   },
   "fromCache": true,
-  "reason": "cache_hit: hash unchanged",
   "cacheAge": 42,
   "suggestFullRead": false
 }
@@ -73,7 +71,6 @@ Returns a cached summary of a file. If the file has not changed since last read,
 ```json
 {
   "path": "src/server.ts",
-  "hash": "f6e5d4c3b2a1...",
   "summary": {
     "purpose": "entry point",
     "exports": ["main"],
@@ -83,15 +80,13 @@ Returns a cached summary of a file. If the file has not changed since last read,
     "confidence": "high"
   },
   "fromCache": false,
-  "reason": "cache_miss: hash changed",
-  "cacheAge": null,
   "suggestFullRead": false
 }
 ```
 
 **Notes:**
 - `suggestFullRead` is `true` when the summary confidence is `"low"`, indicating the agent should read the full file for accuracy.
-- `cacheAge` is in seconds since last check, or `null` if no prior cache entry exists.
+- `cacheAge` is in seconds since the cached entry was last validated; it is only present on cache hits.
 - Summary quality depends on the `summarizer` setting in `.repo-memory.json`: `"ast"` (default) or `"regex"`. AST mode (TS/JS, Python, Go, Rust, Kotlin, Java) yields more accurate exports and a semantic `purpose` line naming the dominant symbols; other languages and files that fail to parse fall back to the regex engine automatically. See the README's Configuration section.
 
 ---
@@ -114,7 +109,6 @@ Returns summaries for multiple files in one call. Each file goes through the sam
     { "path": "src/server.ts", "fromCache": true, "summary": { "...": "..." } },
     { "path": "src/cache/store.ts", "fromCache": false, "summary": { "...": "..." } }
   ],
-  "totalFiles": 3,
   "cacheHits": 1,
   "cacheMisses": 1,
   "errors": [
@@ -145,12 +139,10 @@ Searches cached file summaries by keyword. Matches against each file's purpose, 
 **Output:**
 ```json
 {
-  "query": "cache invalidation",
   "results": [
     {
       "path": "src/cache/invalidation.ts",
       "purpose": "source",
-      "matchedOn": ["exports", "declarations"],
       "exports": ["CacheInvalidator"],
       "confidence": "high"
     }
@@ -166,8 +158,9 @@ Searches cached file summaries by keyword. Matches against each file's purpose, 
 - `pathPrefix` (optional): Restrict results to files at or under this path (e.g. `"src/cache"`). Matched on a path boundary, so `"src/cache"` excludes `src/cache-utils.ts`.
 
 **Notes:**
-- `totalCached` is the number of summarized files in scope (after `pathPrefix` filtering), not the number of matches.
+- `totalCached` is the number of summarized files in scope (after `pathPrefix` filtering), not the number of matches. If it is 0, warm the cache with `repo-memory index` first.
 - `scope` is present only when `pathPrefix` was given, echoing the normalized prefix.
+- `exports` is capped at 5 entries per result; when capped, `exportsTruncated` carries the total export count.
 
 ---
 
@@ -217,7 +210,6 @@ Returns a structural overview of the project including directory tree, entry poi
 **Input:**
 ```json
 {
-  "project_root": "/absolute/path/to/project",
   "depth": 2
 }
 ```
@@ -227,17 +219,15 @@ Returns a structural overview of the project including directory tree, entry poi
 {
   "tree": {
     "name": "repo-memory",
-    "path": ".",
     "files": [
-      { "name": "server.ts", "purpose": "entry point", "size": 4096 }
+      { "name": "server.ts", "purpose": "entry point" }
     ],
     "children": [
       {
         "name": "cache",
-        "path": "src/cache",
         "files": [
-          { "name": "hash.ts", "purpose": "utility", "size": 512 },
-          { "name": "store.ts", "purpose": "data access", "size": 2048 }
+          { "name": "hash.ts", "purpose": "utility" },
+          { "name": "store.ts", "purpose": "data access" }
         ],
         "children": [],
         "fileCount": 5
@@ -256,10 +246,10 @@ Returns a structural overview of the project including directory tree, entry poi
 ```
 
 **Notes:**
-- `depth` limits how deep the directory tree is traversed. Omit for full depth.
+- `project_root` (optional): Absolute path to the project root. Defaults to the server's working directory, like every other tool.
+- `depth` limits how deep the directory tree is traversed. Defaults to 2; pass a larger value for deeper structure.
 - `entryPoints` lists files whose summarized purpose is `"entry point"`.
-- File entries are kept compact (`name`, `purpose`, `size`). Per-file confidence is available
-  via `get_file_summary`; recency is covered by `get_changed_files`.
+- File entries are kept compact (`name`, `purpose`). A directory's path is derivable from its nesting. Per-file confidence is available via `get_file_summary`; recency is covered by `get_changed_files`.
 - Zero-byte `.gitkeep` placeholder files are omitted from the tree.
 
 ---
@@ -331,13 +321,13 @@ Invalidates cached entries. Can target a single file or clear the entire cache.
 
 ### `get_dependency_graph`
 
-Returns dependency graph information. Can query a specific file's dependencies/dependents or get a summary of the most connected files.
+Returns dependency graph information as adjacency maps. Can query a specific file's dependencies/dependents or get a summary of the most connected files. Calling without `path` returns a large whole-repo summary — prefer passing `path`.
 
 **Input (specific file):**
 ```json
 {
   "path": "src/server.ts",
-  "direction": "dependencies",
+  "direction": "both",
   "depth": 1
 }
 ```
@@ -345,38 +335,57 @@ Returns dependency graph information. Can query a specific file's dependencies/d
 **Output:**
 ```json
 {
-  "nodes": [
-    "src/server.ts",
-    "src/tools/get-file-summary.ts",
-    "src/tools/get-changed-files.ts",
-    "src/tools/invalidate.ts"
-  ],
-  "edges": [
-    { "from": "src/server.ts", "to": "src/tools/get-file-summary.ts" },
-    { "from": "src/server.ts", "to": "src/tools/get-changed-files.ts" },
-    { "from": "src/server.ts", "to": "src/tools/invalidate.ts" }
-  ],
+  "deps": {
+    "src/server.ts": [
+      "src/tools/get-changed-files.ts",
+      "src/tools/get-file-summary.ts",
+      "src/tools/invalidate.ts"
+    ]
+  },
+  "dependents": {
+    "src/server.ts": []
+  },
   "stats": {
     "totalFiles": 4,
-    "totalEdges": 3,
-    "mostConnected": [
-      { "path": "src/types.ts", "connections": 12 },
-      { "path": "src/cache/store.ts", "connections": 8 }
-    ]
+    "totalEdges": 3
   }
 }
 ```
 
-**Input (full graph summary):**
+**Input (whole-repo summary):**
 ```json
 {}
 ```
 
+**Output (whole-repo summary):**
+```json
+{
+  "deps": {
+    "src/cache/store.ts": ["src/persistence/db.js", "src/types.ts"],
+    "src/types.ts": []
+  },
+  "stats": {
+    "totalFiles": 118,
+    "totalEdges": 284,
+    "mostConnected": [
+      { "path": "src/types.ts", "connections": 12 },
+      { "path": "src/cache/store.ts", "connections": 8 }
+    ]
+  },
+  "truncated": true
+}
+```
+
 **Parameters:**
-- `path` (optional): File to query. Omit for full graph summary.
-- `direction` (optional): `"dependencies"`, `"dependents"`, or `"both"` (default: `"both"`).
+- `path` (optional): File to query. Omit only when you want the whole-repo summary.
+- `direction` (optional): `"dependencies"`, `"dependents"`, or `"both"` (default: `"both"`). `deps` is present when the direction includes dependencies; `dependents` when it includes dependents.
 - `depth` (optional): Max traversal depth for transitive queries.
-- `symbol` (optional): Filter edges by import specifier (e.g. `"UserService"`), returning only edges that import that symbol.
+- `symbol` (optional): Filter edges by import specifier (e.g. `"UserService"`), returning only edges that import that symbol (as a `deps` adjacency map).
+- `limit` (optional, no-path summary mode only): Max files included in `deps`, ranked by connectivity (default: 50).
+
+**Notes:**
+- `stats.mostConnected` appears only in the no-path summary mode.
+- In summary mode, `stats.totalFiles`/`stats.totalEdges` are whole-graph counts; `truncated: true` flags that `deps` was capped by `limit`.
 
 ---
 

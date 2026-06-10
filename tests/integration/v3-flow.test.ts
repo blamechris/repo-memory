@@ -230,7 +230,7 @@ describe('V3 end-to-end flow', () => {
       'src/utils/validate.ts',
       'dependents',
     );
-    expect(impactGraph.nodes).toContain('src/services/user.ts');
+    expect(impactGraph.dependents!['src/utils/validate.ts']).toContain('src/services/user.ts');
 
     // Step 15: End session 2
     sessionManager2.endSession(session2.id);
