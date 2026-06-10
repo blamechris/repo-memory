@@ -47,6 +47,16 @@ Only missing or stale entries are re-summarized; unchanged files are left untouc
 
 To automate it, drop a git `post-merge` hook in the project (see [docs/usage.md](docs/usage.md#cli) for the snippet) so every pull keeps the cache warm.
 
+### Check the savings
+Telemetry events are always recorded by the cache paths; the `report` subcommand reads them from the shell, so you never need to enable the `telemetry` MCP tool group (~100 tokens/turn of system prompt) just to see the numbers:
+
+```bash
+repo-memory report                  # all recorded events for the current directory
+repo-memory report --hours 24      # last day only
+repo-memory report --json          # machine-readable
+repo-memory report --diagnostics   # add cache health (entry counts, db size)
+```
+
 ## How It Works
 
 ### The problem

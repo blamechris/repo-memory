@@ -36,6 +36,27 @@ To keep the cache warm automatically, run it from a git `post-merge` hook so eve
 
 The subshell-and-background form keeps pulls fast; with `--quiet` the run is silent. Note `post-merge` does not fire on rebase pulls (`git pull --rebase`).
 
+### `repo-memory report [projectRoot] [--hours N] [--json] [--diagnostics]`
+
+Prints the token telemetry report for a project and exits. Telemetry events are always recorded by the cache paths — the `telemetry` tool group only gates the `get_token_report` MCP tool — so this reads the same data from the shell at zero token cost, in any project, without touching its config.
+
+- `projectRoot` (optional): directory to report on. Default: current directory.
+- `--hours N`: restrict to the last N hours (default: all recorded events).
+- `--json`: print the raw report JSON (same shape as `get_token_report`).
+- `--diagnostics`: include cache health (entry counts, stale entries, db size, age distribution).
+
+```
+$ repo-memory report --hours 24
+Token report for /path/to/project (last 24h)
+  events:        156 (132 hits / 24 misses, 84.6% hit ratio)
+  tokens saved:  ~482,000
+  breakdown:     cache_hit 132, cache_miss 24
+  top files:
+    12x src/server.ts (~8,400 tokens)
+```
+
+Exits `0` on success, `1` on error (message on stderr).
+
 ## Tools Reference
 
 ### `get_file_summary`
