@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CacheStore } from '../../src/cache/store.js';
-import { closeDatabase } from '../../src/persistence/db.js';
+import { DependencyGraph } from '../../src/graph/dependency-graph.js';
+import { closeDatabase, getDatabase } from '../../src/persistence/db.js';
 import { invalidateCache } from '../../src/tools/invalidate.js';
 
 describe('invalidateCache', () => {
@@ -42,6 +43,23 @@ describe('invalidateCache', () => {
     expect(result.invalidated).toBe('all');
     expect(result.entriesRemoved).toBe(3);
     expect(store.getAllEntries()).toHaveLength(0);
+  });
+
+  it('removes the import edges extracted from an invalidated file', async () => {
+    mkdirSync(join(tempDir, 'src'), { recursive: true });
+    writeFileSync(join(tempDir, 'src', 'util.ts'), 'export const util = 1;\n');
+    const contents = `import { util } from './util.js';\n`;
+    writeFileSync(join(tempDir, 'src', 'a.ts'), contents);
+
+    new DependencyGraph(tempDir).updateFile('src/a.ts', contents);
+    store.setEntry('src/a.ts', 'hash-a', null);
+
+    await invalidateCache(tempDir, 'src/a.ts');
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT source FROM imports WHERE source = ?')
+      .all('src/a.ts');
+    expect(rows).toEqual([]);
   });
 
   it('should return correct count of entries removed', async () => {

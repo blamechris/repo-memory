@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CacheStore } from '../../src/cache/store.js';
-import { closeDatabase } from '../../src/persistence/db.js';
+import { closeDatabase, getDatabase } from '../../src/persistence/db.js';
 import { forceReread } from '../../src/tools/force-reread.js';
 
 describe('forceReread', () => {
@@ -65,5 +65,21 @@ describe('forceReread', () => {
     const entry = store.getEntry(filePath);
     expect(entry).not.toBeNull();
     expect(entry!.hash).toBe(result.hash);
+  });
+
+  it('persists the file import edges alongside the summary', async () => {
+    writeFileSync(join(tempDir, 'src', 'util.ts'), 'export const util = 1;', 'utf-8');
+    writeFileSync(
+      join(tempDir, 'src', 'app.ts'),
+      `import { util } from './util.js';\nexport const app = util;`,
+      'utf-8',
+    );
+
+    await forceReread(tempDir, 'src/app.ts');
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT target FROM imports WHERE source = ?')
+      .all('src/app.ts') as Array<{ target: string }>;
+    expect(rows).toEqual([{ target: 'src/util.ts' }]);
   });
 });

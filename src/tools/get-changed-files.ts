@@ -1,6 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { join } from 'path';
 import { CacheStore } from '../cache/store.js';
-import { hashFile } from '../cache/hash.js';
+import { hashContents } from '../cache/hash.js';
+import { DependencyGraph } from '../graph/dependency-graph.js';
+import { isGraphIndexable } from '../indexer/source-extensions.js';
 import { scanProject } from '../indexer/scanner.js';
 
 export interface ChangedFilesResult {
@@ -25,12 +28,18 @@ export async function getChangedFiles(
 
   const changed: string[] = [];
   const added: string[] = [];
+  const graph = new DependencyGraph(projectRoot);
 
   await Promise.all(
     scannedFiles.map(async (relativePath) => {
       const absolutePath = join(projectRoot, relativePath);
-      const currentHash = await hashFile(absolutePath);
-      if (!currentHash) return;
+      let contents: string;
+      try {
+        contents = await readFile(absolutePath, 'utf-8');
+      } catch {
+        return;
+      }
+      const currentHash = hashContents(contents);
 
       const cached = cachedByPath.get(relativePath);
 
@@ -45,8 +54,13 @@ export async function getChangedFiles(
       // Update the cache entry with current hash and timestamp. A summary may
       // only be stored under the hash it was computed from — when the file
       // changed, store null so the summary regenerates on next access instead
-      // of masquerading as a fresh cache hit.
+      // of masquerading as a fresh cache hit. Import edges follow the same
+      // rule: recording a new hash without re-extracting edges would let the
+      // graph serve stale edges as fresh.
       const summaryStillValid = cached !== undefined && cached.hash === currentHash;
+      if (!summaryStillValid && isGraphIndexable(relativePath)) {
+        graph.updateFile(relativePath, contents);
+      }
       store.setEntry(relativePath, currentHash, summaryStillValid ? cached.summary : null);
     }),
   );

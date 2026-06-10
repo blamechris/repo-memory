@@ -8,7 +8,7 @@ import { runIndex } from '../../src/cli/index-command.js';
 import { TelemetryTracker } from '../../src/telemetry/tracker.js';
 import { clearConfigCache } from '../../src/config.js';
 import { clearSummaryGenerationCache } from '../../src/indexer/summarize.js';
-import { closeDatabase, getDatabasePath } from '../../src/persistence/db.js';
+import { closeDatabase, getDatabase, getDatabasePath } from '../../src/persistence/db.js';
 
 describe('runIndex', () => {
   let tempDir: string;
@@ -104,6 +104,20 @@ describe('runIndex', () => {
     const store = new CacheStore(projectDir);
     expect(store.getEntry('src/index.ts')!.summary).not.toBeNull();
     expect(store.getEntry('src/utils.ts')!.summary).not.toBeNull();
+  });
+
+  it('populates the dependency-graph imports table', async () => {
+    writeFileSync(
+      join(tempDir, 'src', 'main.ts'),
+      `import { greet } from './greet.js';\nexport const message = greet('world');\n`,
+    );
+
+    await runIndex(tempDir, { quiet: true });
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT source, target FROM imports')
+      .all() as Array<{ source: string; target: string }>;
+    expect(rows).toContainEqual({ source: 'src/main.ts', target: 'src/greet.ts' });
   });
 
   it('records no telemetry events', async () => {

@@ -192,6 +192,45 @@ describe('DependencyGraph', () => {
     expect(graph2.getDependents('src/b.ts')).toEqual(['src/a.ts']);
   });
 
+  it('removeFile deletes persisted and in-memory edges in both directions', () => {
+    addFile('src/c.ts', `export const C = 1;`);
+    addFile('src/b.ts', `import { C } from './c';\nexport const B = 1;`);
+    addFile('src/a.ts', `import { B } from './b';`);
+
+    graph.removeFile('src/b.ts');
+
+    expect(graph.getDependencies('src/a.ts')).toEqual([]);
+    expect(graph.getDependents('src/c.ts')).toEqual([]);
+    expect(graph.getDependencies('src/b.ts')).toEqual([]);
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT source FROM imports WHERE source = ? OR target = ?')
+      .all('src/b.ts', 'src/b.ts');
+    expect(rows).toEqual([]);
+
+    // A reloaded graph must agree with the in-memory one.
+    const graph2 = new DependencyGraph(tempDir);
+    graph2.load();
+    expect(graph2.getDependencies('src/a.ts')).toEqual([]);
+    expect(graph2.getDependents('src/c.ts')).toEqual([]);
+  });
+
+  it('prune removes every node missing from the existing-file set', () => {
+    addFile('src/util.ts', `export const util = 1;`);
+    addFile('src/a.ts', `import { util } from './util';`);
+    addFile('src/b.ts', `import { util } from './util';`);
+
+    graph.prune(new Set(['src/util.ts', 'src/a.ts']));
+
+    expect(graph.getDependents('src/util.ts')).toEqual(['src/a.ts']);
+    expect(graph.getDependencies('src/b.ts')).toEqual([]);
+
+    const rows = getDatabase(tempDir)
+      .prepare('SELECT source FROM imports')
+      .all() as Array<{ source: string }>;
+    expect(rows).toEqual([{ source: 'src/a.ts' }]);
+  });
+
   it('returns empty arrays for unknown paths', () => {
     expect(graph.getDependencies('nonexistent.ts')).toEqual([]);
     expect(graph.getDependents('nonexistent.ts')).toEqual([]);

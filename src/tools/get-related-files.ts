@@ -1,6 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { DependencyGraph } from '../graph/dependency-graph.js';
+import { dirname } from 'node:path';
+import { loadFreshGraph } from '../graph/refresh.js';
 import { scanProject } from '../indexer/scanner.js';
 import { validatePath } from '../utils/validate-path.js';
 import { rankFiles } from '../cache/ranking.js';
@@ -23,34 +22,9 @@ export async function getRelatedFiles(
   const validated = validatePath(projectRoot, relativePath);
   const limit = options?.limit ?? 10;
 
-  // Build the dependency graph
-  const graph = new DependencyGraph(projectRoot);
+  // Load the persisted dependency graph, refreshing only stale files.
   const files = await scanProject(projectRoot);
-
-  for (const file of files) {
-    if (
-      !file.endsWith('.ts') &&
-      !file.endsWith('.js') &&
-      !file.endsWith('.tsx') &&
-      !file.endsWith('.jsx') &&
-      !file.endsWith('.mjs') &&
-      !file.endsWith('.cjs') &&
-      !file.endsWith('.py') &&
-      !file.endsWith('.go') &&
-      !file.endsWith('.rs') &&
-      !file.endsWith('.kt') &&
-      !file.endsWith('.kts') &&
-      !file.endsWith('.java')
-    ) {
-      continue;
-    }
-    try {
-      const contents = await readFile(join(projectRoot, file), 'utf-8');
-      graph.updateFile(file, contents);
-    } catch {
-      // Skip unreadable files
-    }
-  }
+  const graph = await loadFreshGraph(projectRoot, files);
 
   // Import targets are resolved to real file paths at extraction time, so the
   // graph can be queried with the validated path directly.
