@@ -2,6 +2,30 @@
 
 Detailed documentation for each repo-memory MCP tool, with example inputs and outputs.
 
+## CLI
+
+By default `repo-memory` starts the MCP server on stdio. One subcommand is available:
+
+### `repo-memory index [projectRoot] [--quiet]`
+
+Prewarms the summary cache: scans the project, hashes every indexable file, and generates summaries for entries that are missing or stale. Unchanged files are left untouched, so it is cheap to run repeatedly (post-pull hook, CI step). Respects `.repo-memory.json` (ignore patterns, `maxFiles`, summarizer mode).
+
+- `projectRoot` (optional): directory to index. Default: current directory.
+- `--quiet` / `-q`: print nothing on success.
+
+```
+$ repo-memory index
+Indexed /path/to/project
+  scanned:       128
+  summarized:    126
+  already fresh: 2
+  skipped:       0
+  elapsed:       0.42s
+  cache db:      /path/to/project/.repo-memory/cache.db
+```
+
+Exits `0` on success, `1` on error (message on stderr).
+
 ## Tools Reference
 
 ### `get_file_summary`

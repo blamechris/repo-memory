@@ -34,6 +34,17 @@ npm install -g @blamechris/repo-memory
 repo-memory  # starts MCP server on stdio
 ```
 
+### Prewarm the cache
+The first time an agent touches a file it pays full price — the summary has to be generated. You can pay that cost ahead of time (post-pull hook, CI step) so the first session starts with cache hits:
+
+```bash
+repo-memory index            # index the current directory
+repo-memory index /path/to/project
+repo-memory index --quiet    # no output on success (for scripts/CI)
+```
+
+Only missing or stale entries are re-summarized; unchanged files are left untouched.
+
 ## How It Works
 
 ### The problem

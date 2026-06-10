@@ -329,8 +329,16 @@ async function main() {
   });
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  process.stderr.write(`Fatal error: ${message}\n`);
-  process.exit(1);
-});
+// Subcommand dispatch: `repo-memory index [projectRoot]` prewarms the summary
+// cache and exits. Anything else starts the MCP server on stdio, where stdout
+// is reserved for the protocol channel.
+if (process.argv[2] === 'index') {
+  const { runIndexCli } = await import('./cli/index-command.js');
+  await runIndexCli(process.argv.slice(3));
+} else {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    process.stderr.write(`Fatal error: ${message}\n`);
+    process.exit(1);
+  });
+}

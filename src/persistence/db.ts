@@ -137,9 +137,14 @@ function runMigrations(db: Database.Database): void {
   applyMigrations();
 }
 
+/** Absolute path of the cache database for a project (whether or not it exists yet). */
+export function getDatabasePath(projectRoot: string): string {
+  return join(projectRoot, REPO_MEMORY_DIR, DB_FILENAME);
+}
+
 export function getDatabase(projectRoot: string): Database.Database {
   const dbDir = join(projectRoot, REPO_MEMORY_DIR);
-  const dbPath = join(dbDir, DB_FILENAME);
+  const dbPath = getDatabasePath(projectRoot);
 
   if (instance && instancePath === dbPath) {
     return instance;
