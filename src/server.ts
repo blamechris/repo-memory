@@ -178,7 +178,7 @@ function registerTools(server: McpServer, config: RepoMemoryConfig): void {
       },
     }, async ({ query, limit, pathPrefix }) => {
       const projectRoot = process.cwd();
-      const result = searchByPurpose(projectRoot, query, limit, pathPrefix);
+      const result = await searchByPurpose(projectRoot, query, limit, pathPrefix);
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       };
