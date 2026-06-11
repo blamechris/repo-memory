@@ -122,9 +122,13 @@ export class TelemetryTracker {
     const hitTotal = cacheHits + cacheMisses;
     const hitRatio = hitTotal > 0 ? cacheHits / hitTotal : 0;
 
+    // Savings = cache hits (full read avoided, raw minus summary) plus
+    // summary_served (one conservative per-query estimate of the read a
+    // search replaced — see search-by-purpose). force_reread/cache_miss book
+    // costs, not savings, and stay excluded.
     const tokenRow = db
       .prepare(
-        `SELECT COALESCE(SUM(tokens_estimated), 0) as total FROM telemetry WHERE event_type = 'cache_hit'${since ? ' AND timestamp >= ?' : ''}`,
+        `SELECT COALESCE(SUM(tokens_estimated), 0) as total FROM telemetry WHERE event_type IN ('cache_hit', 'summary_served')${since ? ' AND timestamp >= ?' : ''}`,
       )
       .get(...params) as { total: number };
 
