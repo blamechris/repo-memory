@@ -58,6 +58,16 @@ describe('TelemetryTracker', () => {
     expect(stats.totalTokensSaved).toBe(350);
   });
 
+  it('getStats counts search savings but not reread/miss costs', () => {
+    tracker.trackEvent('cache_hit', 'a.ts', 100);
+    tracker.trackEvent('summary_served', 'b.ts', 250); // search counterfactual counts
+    tracker.trackEvent('force_reread', 'c.ts', 999); // a cost, not a saving
+    tracker.trackEvent('cache_miss', 'd.ts', 300); // likewise
+
+    const stats = tracker.getStats();
+    expect(stats.totalTokensSaved).toBe(350);
+  });
+
   it('disabled tracker does not record events', () => {
     const disabledTracker = new TelemetryTracker(tempDir, false);
     disabledTracker.trackEvent('cache_hit', 'a.ts', 100);
