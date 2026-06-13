@@ -134,3 +134,71 @@ describe('formatReport', () => {
     expect(text).toContain('no telemetry recorded yet');
   });
 });
+
+// The `report --json` output is a published contract: chroxy's Control Room
+// Integrations tab parses it (RepoMemoryReportSchema in chroxy's
+// packages/protocol). These tests pin the exact key set at each level so a
+// rename or restructure fails here instead of silently breaking that consumer.
+// If you intend to change the shape, update this test AND chroxy's schema
+// together, and treat it as a breaking change to the CLI contract.
+describe('report --json contract (consumed by chroxy Integrations)', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'report-contract-test-'));
+    mkdirSync(join(tempDir, 'src'));
+    writeFileSync(join(tempDir, 'src', 'a.ts'), 'export const a = 1;\n');
+    clearConfigCache();
+    clearSummaryGenerationCache();
+  });
+
+  afterEach(() => {
+    closeDatabase();
+    rmSync(tempDir, { recursive: true, force: true });
+    clearConfigCache();
+    clearSummaryGenerationCache();
+  });
+
+  it('pins the top-level TokenReport keys', () => {
+    const report = runReport(tempDir);
+    expect(Object.keys(report).sort()).toEqual([
+      'cacheHitRatio',
+      'cacheHits',
+      'cacheMisses',
+      'estimatedTokensSaved',
+      'eventBreakdown',
+      'period',
+      'topFiles',
+      'totalEvents',
+    ]);
+  });
+
+  it('adds exactly a diagnostics block under --diagnostics, with a pinned key set', () => {
+    const base = Object.keys(runReport(tempDir));
+    const withDiag = runReport(tempDir, { diagnostics: true });
+
+    expect(Object.keys(withDiag).sort()).toEqual([...base, 'diagnostics'].sort());
+    expect(Object.keys(withDiag.diagnostics!).sort()).toEqual([
+      'cacheAgeDistribution',
+      'cacheEntryCount',
+      'dbFileSizeBytes',
+      'staleEntryCount',
+    ]);
+  });
+
+  it('holds the field types chroxy validates as a JSON round-trip', async () => {
+    await getFileSummary(tempDir, 'src/a.ts');
+    // Exercise the actual serialization boundary the consumer reads.
+    const report = JSON.parse(JSON.stringify(runReport(tempDir, { diagnostics: true })));
+
+    expect(typeof report.totalEvents).toBe('number');
+    expect(typeof report.cacheHits).toBe('number');
+    expect(typeof report.cacheMisses).toBe('number');
+    expect(report.cacheHitRatio).toBeGreaterThanOrEqual(0);
+    expect(report.cacheHitRatio).toBeLessThanOrEqual(1);
+    expect(report.estimatedTokensSaved).toBeGreaterThanOrEqual(0);
+    // chroxy flattens these two out of diagnostics; they must stay int|null-able.
+    expect(Number.isInteger(report.diagnostics.cacheEntryCount)).toBe(true);
+    expect(Number.isInteger(report.diagnostics.staleEntryCount)).toBe(true);
+  });
+});
