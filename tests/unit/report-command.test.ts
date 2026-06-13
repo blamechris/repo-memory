@@ -80,6 +80,21 @@ describe('runReport', () => {
     expect(report.diagnostics!.dbFileSizeBytes).toBeGreaterThan(0);
   });
 
+  it('aggregates failed searches into topMissedQueries', () => {
+    const tracker = new TelemetryTracker(tempDir);
+    tracker.trackEvent('search_miss', undefined, 0, { query: 'websocket reconnect', totalCached: 5 });
+    tracker.trackEvent('search_miss', undefined, 0, { query: 'websocket reconnect', totalCached: 5 });
+    tracker.trackEvent('search_miss', undefined, 0, { query: 'oauth refresh', totalCached: 5 });
+
+    const report = runReport(tempDir);
+    expect(report.topMissedQueries).toEqual([
+      { query: 'websocket reconnect', count: 2 },
+      { query: 'oauth refresh', count: 1 },
+    ]);
+    // A miss books no tokens, so the savings sum stays clean.
+    expect(report.estimatedTokensSaved).toBe(0);
+  });
+
   it('rejects a project root that does not exist', () => {
     expect(() => runReport(join(tempDir, 'no-such-dir'))).toThrow(/does not exist/);
   });
@@ -101,6 +116,7 @@ describe('formatReport', () => {
         cacheHitRatio: 0.667,
         estimatedTokensSaved: 1234,
         topFiles: [{ path: 'src/a.ts', accessCount: 2, tokensEstimated: 1000 }],
+        topMissedQueries: [{ query: 'websocket reconnect', count: 3 }],
         eventBreakdown: { cache_hit: 2, cache_miss: 1 },
       },
       undefined,
@@ -110,6 +126,8 @@ describe('formatReport', () => {
     expect(text).toContain('~1,234');
     expect(text).toContain('2x src/a.ts');
     expect(text).toContain('all recorded events');
+    expect(text).toContain('failed searches: 3');
+    expect(text).toContain('3x "websocket reconnect"');
   });
 
   it('renders an empty-telemetry hint and n/a ratio', () => {
@@ -123,6 +141,7 @@ describe('formatReport', () => {
         cacheHitRatio: 0,
         estimatedTokensSaved: 0,
         topFiles: [],
+        topMissedQueries: [],
         eventBreakdown: {},
       },
       4,
@@ -130,6 +149,7 @@ describe('formatReport', () => {
     expect(text).toContain('last 4h');
     expect(text).toContain('n/a hit ratio');
     expect(text).toContain('no telemetry recorded yet');
+    expect(text).not.toContain('failed searches');
   });
 });
 
@@ -167,6 +187,7 @@ describe('report --json contract (consumed by chroxy Integrations)', () => {
       'eventBreakdown',
       'period',
       'topFiles',
+      'topMissedQueries',
       'totalEvents',
     ]);
   });
