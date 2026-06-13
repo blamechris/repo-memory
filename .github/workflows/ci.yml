@@ -52,30 +52,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Use Node.js 20.x
+      # Node 22, not 20: better-sqlite3 12.x publishes win32-x64 prebuilts
+      # only for ABI 127+ (Node 22/24/26) — there is no Node-20 (ABI 115)
+      # Windows prebuilt, so a Node-20 install always drops to a node-gyp
+      # source build that then crashes on VS detection (#189). 22 is active
+      # LTS and gets the prebuilt, so the install needs no compiler.
+      - name: Use Node.js 22.x
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: npm
 
-      # better-sqlite3 ships Windows prebuilts, but its install script falls
-      # through to a node-gyp source build when the prebuilt download flakes —
-      # and the runner has no Visual Studio, so that fallback always fails
-      # (#189). Forbid the source build outright (the prebuilt is the only
-      # supported path; see CLAUDE.md) and retry the install so a transient
-      # download blip gets another attempt instead of dropping to gyp.
       - name: Install dependencies
-        shell: pwsh
-        env:
-          npm_config_build_from_source: 'false'
-        run: |
-          for ($i = 1; $i -le 3; $i++) {
-            npm ci
-            if ($LASTEXITCODE -eq 0) { exit 0 }
-            Write-Host "::warning::npm ci failed (attempt $i/3), retrying in 10s"
-            Start-Sleep -Seconds 10
-          }
-          exit 1
+        run: npm ci
 
       - name: Test
         run: npm test
