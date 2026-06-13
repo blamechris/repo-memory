@@ -57,7 +57,7 @@ Token report for /path/to/project (last 24h)
 
 Exits `0` on success, `1` on error (message on stderr).
 
-**`--json` output is a stable contract.** It serializes the `TokenReport` shape (`totalEvents`, `cacheHits`, `cacheMisses`, `cacheHitRatio`, `estimatedTokensSaved`, `topFiles`, `eventBreakdown`, and under `--diagnostics` a `diagnostics` block of `cacheEntryCount` / `staleEntryCount` / `dbFileSizeBytes` / `cacheAgeDistribution`). External tooling parses this — `estimatedTokensSaved` counts cache hits plus search (`summary_served`) savings. The key set is pinned by a contract test (`tests/unit/report-command.test.ts`); renaming or restructuring a field is a breaking change to this CLI contract.
+**`--json` output is a stable contract.** It serializes the `TokenReport` shape (`totalEvents`, `cacheHits`, `cacheMisses`, `cacheHitRatio`, `estimatedTokensSaved`, `topFiles`, `topMissedQueries`, `eventBreakdown`, and under `--diagnostics` a `diagnostics` block of `cacheEntryCount` / `staleEntryCount` / `dbFileSizeBytes` / `cacheAgeDistribution`). External tooling parses this — `estimatedTokensSaved` counts cache hits plus search (`summary_served`) savings, and `topMissedQueries` lists the searches that matched nothing (query + count) so ranking gaps are reviewable. The key set is pinned by a contract test (`tests/unit/report-command.test.ts`); renaming or restructuring a field is a breaking change to this CLI contract.
 
 ## Tools Reference
 

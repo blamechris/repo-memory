@@ -65,6 +65,14 @@ export function formatReport(projectRoot: string, report: TokenReport, hours?: n
     }
   }
 
+  if (report.topMissedQueries.length > 0) {
+    const total = report.topMissedQueries.reduce((sum, m) => sum + m.count, 0);
+    lines.push(`  failed searches: ${total} (queries that matched nothing — candidates for ranking gaps)`);
+    for (const miss of report.topMissedQueries.slice(0, 5)) {
+      lines.push(`    ${miss.count}x "${miss.query}"`);
+    }
+  }
+
   if (report.diagnostics) {
     const d = report.diagnostics;
     const ages = Object.entries(d.cacheAgeDistribution)

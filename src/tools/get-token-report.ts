@@ -19,6 +19,14 @@ export interface TokenReport {
   cacheHitRatio: number;
   estimatedTokensSaved: number;
   topFiles: Array<{ path: string; accessCount: number; tokensEstimated: number }>;
+  /**
+   * `search_by_purpose` queries that matched nothing against a non-empty
+   * corpus, aggregated by query and ranked by frequency (top 10). This is the
+   * "bad-ranking query" signal the FTS5 decision waits on (#192): a reviewable
+   * list of what agents searched for and the lexical ranking couldn't satisfy.
+   * Always present; empty when there were no such misses.
+   */
+  topMissedQueries: Array<{ query: string; count: number }>;
   eventBreakdown: Record<string, number>;
   diagnostics?: CacheDiagnostics;
 }
@@ -108,6 +116,20 @@ export function getTokenReport(
     .sort((a, b) => b.accessCount - a.accessCount)
     .slice(0, 10);
 
+  // Aggregate failed searches by their query text (search_miss carries the
+  // query in metadata) so the FTS5 signal is a reviewable list, not raw rows.
+  const missMap = new Map<string, number>();
+  for (const event of events) {
+    if (event.eventType !== 'search_miss') continue;
+    const query = (event.metadata as { query?: unknown } | null)?.query;
+    if (typeof query !== 'string') continue;
+    missMap.set(query, (missMap.get(query) ?? 0) + 1);
+  }
+  const topMissedQueries = [...missMap.entries()]
+    .map(([query, count]) => ({ query, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
   const report: TokenReport = {
     period: effectivePeriod,
     totalEvents: stats.totalEvents,
@@ -116,6 +138,7 @@ export function getTokenReport(
     cacheHitRatio: stats.hitRatio,
     estimatedTokensSaved: stats.totalTokensSaved,
     topFiles,
+    topMissedQueries,
     eventBreakdown: stats.eventsByType,
   };
 
