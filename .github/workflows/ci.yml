@@ -52,10 +52,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Use Node.js 20.x
+      # Node 22, not 20: better-sqlite3 12.x publishes win32-x64 prebuilts
+      # only for ABI 127+ (Node 22/24/26) — there is no Node-20 (ABI 115)
+      # Windows prebuilt, so a Node-20 install always drops to a node-gyp
+      # source build that then crashes on VS detection (#189). 22 is active
+      # LTS and gets the prebuilt, so the install needs no compiler.
+      - name: Use Node.js 22.x
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: npm
 
       - name: Install dependencies
