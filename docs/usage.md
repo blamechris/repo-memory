@@ -184,6 +184,7 @@ Searches cached file summaries by keyword. Matches against each file's purpose, 
 - `totalCached` is the number of summarized files in scope (after `pathPrefix` filtering), not the number of matches. If it is 0, warm the cache with `repo-memory index` first.
 - `scope` is present only when `pathPrefix` was given, echoing the normalized prefix.
 - `exports` is capped at 5 entries per result; when capped, `exportsTruncated` carries the total export count.
+- Telemetry: a query that returns results records one `summary_served` event; a query that matches **nothing against a non-empty corpus** records a `search_miss` (0 tokens, query in metadata) so failed searches are measurable. A search against an empty/cold cache records neither.
 
 ---
 
