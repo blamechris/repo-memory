@@ -206,27 +206,33 @@ export async function searchByPurpose(
     if (validated) served.push(validated);
   }
 
-  // Telemetry: ONE summary_served event per query, not per hit. Per-hit
-  // tracking booked every matched file as a full read avoided, inflating
-  // "tokens saved" by up to `limit`x. The realistic counterfactual for one
-  // search is the agent grepping and then reading roughly ONE candidate file
-  // in full, so we book the estimated raw-content tokens of one average
-  // served file (lineCount x ~40 chars/line / ~4 chars/token = lineCount x 10).
-  // Best-effort: a telemetry write failure (e.g. locked DB) must never fail
-  // the read path.
-  if (served.length > 0) {
-    try {
+  const totalCached = entries.filter((e) => e.summary).length;
+
+  // Telemetry, best-effort (audit invariant I8 — a write failure must never
+  // fail the read path):
+  //   - hit: ONE summary_served per query, not per result. Per-hit tracking
+  //     inflated "tokens saved" by up to `limit`x; the realistic counterfactual
+  //     for one search is grepping and reading ~ONE candidate file in full, so
+  //     we book one average served file (lineCount x ~40 chars/line / ~4
+  //     chars/token = lineCount x 10).
+  //   - miss: a query that matched nothing against a non-empty corpus is the
+  //     "bad-ranking query" signal the FTS5 decision waits on (#192). Books 0
+  //     tokens. Gated on totalCached > 0 so a cold cache (a setup state, not a
+  //     ranking failure) records nothing.
+  try {
+    const tracker = new TelemetryTracker(projectRoot);
+    if (served.length > 0) {
       const avgLineCount =
         served.reduce((sum, c) => sum + c.summary.lineCount, 0) / served.length;
-      new TelemetryTracker(projectRoot).trackEvent(
-        'summary_served',
-        served[0].entry.path,
-        Math.round(avgLineCount * 10),
-        { query, resultCount: served.length },
-      );
-    } catch {
-      // Telemetry is best-effort on read paths (audit invariant I8).
+      tracker.trackEvent('summary_served', served[0].entry.path, Math.round(avgLineCount * 10), {
+        query,
+        resultCount: served.length,
+      });
+    } else if (totalCached > 0) {
+      tracker.trackEvent('search_miss', undefined, 0, { query, totalCached });
     }
+  } catch {
+    // Telemetry is best-effort on read paths (audit invariant I8).
   }
 
   return {
@@ -241,7 +247,7 @@ export async function searchByPurpose(
         confidence: c.summary.confidence,
       };
     }),
-    totalCached: entries.filter((e) => e.summary).length,
+    totalCached,
     ...(normalizedPrefix ? { scope: normalizedPrefix } : {}),
   };
 }

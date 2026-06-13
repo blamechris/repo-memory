@@ -5,7 +5,11 @@ export type TelemetryEvent =
   | 'cache_miss'
   | 'invalidation'
   | 'force_reread'
-  | 'summary_served';
+  | 'summary_served'
+  // A search_by_purpose query that matched nothing against a non-empty corpus
+  // — the "bad-ranking query" signal the FTS5 decision waits on (see #192).
+  // Books 0 tokens, so it never touches the savings sum or hit ratio.
+  | 'search_miss';
 
 export interface TelemetryEntry {
   id: number;

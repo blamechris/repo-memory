@@ -148,6 +148,22 @@ describe('searchByPurpose', () => {
     expect(after).toBe(before);
   });
 
+  it('tracks a search_miss when a query matches nothing against a non-empty corpus', async () => {
+    const tracker = new TelemetryTracker(tempDir);
+    const before = tracker.getEvents({ eventType: 'search_miss' }).length;
+
+    const result = await searchByPurpose(tempDir, 'xyznonexistent');
+    expect(result.results).toEqual([]);
+    expect(result.totalCached).toBeGreaterThan(0); // there WAS a corpus
+
+    const misses = tracker.getEvents({ eventType: 'search_miss' });
+    expect(misses.length).toBe(before + 1);
+    const event = misses.reduce((a, b) => (b.id > a.id ? b : a));
+    expect(event.tokensEstimated).toBe(0); // a miss saves nothing
+    expect(event.filePath).toBeNull();
+    expect(event.metadata).toMatchObject({ query: 'xyznonexistent' });
+  });
+
   it('scopes results to a pathPrefix directory', async () => {
     // "validate" matches files in src/auth (validation.ts, middleware.ts) — scope to that dir.
     const result = await searchByPurpose(tempDir, 'validate', undefined, 'src/auth');
@@ -170,9 +186,18 @@ describe('searchByPurpose', () => {
 
   it('matches on a path boundary (prefix does not catch sibling names)', async () => {
     // "src/d" must NOT match "src/db/..." — only a full segment boundary counts.
+    const tracker = new TelemetryTracker(tempDir);
+    const before = tracker.getEvents({ eventType: 'search_miss' }).length;
+
     const result = await searchByPurpose(tempDir, 'database', undefined, 'src/d');
     expect(result.results).toEqual([]);
     expect(result.totalCached).toBe(0);
+
+    // Empty corpus (no files in scope) is a setup state, not a ranking failure —
+    // it must NOT record a search_miss (the FTS5 signal is misses against a
+    // non-empty corpus only, #192).
+    const after = tracker.getEvents({ eventType: 'search_miss' }).length;
+    expect(after).toBe(before);
   });
 
   it('omits scope when no pathPrefix is given', async () => {
