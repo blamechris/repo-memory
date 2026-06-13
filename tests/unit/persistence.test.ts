@@ -52,6 +52,29 @@ describe('persistence layer', () => {
     expect(db1).toBe(db2);
   });
 
+  it('switches to a distinct instance when a different project is requested', () => {
+    // The singleton re-points when asked for another project's database;
+    // if it didn't, one project would be served another's cache. The previous
+    // handle must be closed (not leaked) when it does.
+    const otherDir = mkdtempSync(join(tmpdir(), 'repo-memory-test-b-'));
+    try {
+      const dbA = getDatabase(tempDir);
+      expect(() => dbA.prepare('SELECT 1').get()).not.toThrow();
+
+      const dbB = getDatabase(otherDir);
+      expect(dbB).not.toBe(dbA);
+      expect(existsSync(join(otherDir, '.repo-memory', 'cache.db'))).toBe(true);
+
+      // Switching projects closed the old handle...
+      expect(() => dbA.prepare('SELECT 1').get()).toThrow();
+      // ...and the new one is live.
+      expect((dbB.prepare('SELECT 1 AS n').get() as { n: number }).n).toBe(1);
+    } finally {
+      closeDatabase();
+      rmSync(otherDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
   it('can insert and query file entries', () => {
     const db = getDatabase(tempDir);
     db.prepare('INSERT INTO files (path, hash, last_checked, summary_json) VALUES (?, ?, ?, ?)').run(
