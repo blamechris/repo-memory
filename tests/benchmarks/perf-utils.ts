@@ -145,12 +145,17 @@ export function createPerfFixture(options: PerfFixtureOptions): string {
     writeFileSync(fullPath, content, 'utf-8');
   }
 
-  // Initialize git repo and commit
-  execFileSync('git', ['init'], { cwd: tempDir, stdio: 'pipe' });
-  execFileSync('git', ['add', '.'], { cwd: tempDir, stdio: 'pipe' });
+  // Initialize git repo and commit. Disable git's background work (auto-gc,
+  // background maintenance, fsmonitor daemon) on every invocation — otherwise
+  // it keeps writing into .git after the command returns and races the
+  // fixture's teardown (ENOTEMPTY on rmSync). Same guard as the perf test's
+  // own git calls; this helper was the remaining unflagged source.
+  const GIT_QUIET = ['-c', 'gc.auto=0', '-c', 'maintenance.auto=false', '-c', 'core.fsmonitor=false'];
+  execFileSync('git', [...GIT_QUIET, 'init'], { cwd: tempDir, stdio: 'pipe' });
+  execFileSync('git', [...GIT_QUIET, 'add', '.'], { cwd: tempDir, stdio: 'pipe' });
   execFileSync(
     'git',
-    ['commit', '-m', 'initial fixture', '--no-gpg-sign'],
+    [...GIT_QUIET, 'commit', '-m', 'initial fixture', '--no-gpg-sign'],
     {
       cwd: tempDir,
       stdio: 'pipe',
