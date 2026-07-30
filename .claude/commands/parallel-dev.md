@@ -118,7 +118,7 @@ gh issue view ${ISSUE_NUM} --json title,body,labels,comments
 
 ### Phase 2: Parallel Implementation (Fan-Out)
 
-Launch implementation agents using the Agent tool with `isolation: "worktree"`. Each agent gets its own isolated copy of the repository — the platform handles worktree creation, branch management, and cleanup. Worktrees live under `.claude/worktrees/`.
+Launch implementation agents using the Agent tool with `isolation: "worktree"`. Each agent gets its own isolated copy of the repository — the platform handles worktree creation, branch management, and cleanup.
 
 **Batching:** If the queue has more issues than `PARALLEL`, process in batches:
 - Batch 1: first `PARALLEL` agents in parallel
@@ -132,6 +132,12 @@ Launch implementation agents using the Agent tool with `isolation: "worktree"`. 
 - Run as foreground calls (NOT background) so output returns directly
 
 **IMPORTANT:** Do NOT run agents in the background. Run them as foreground Agent calls so their output returns directly. If running more than the concurrency limit, batch them.
+
+**Delegation tiers (cost discipline — do not strip):**
+
+- **Implementers run on sonnet by default.** Well-scoped, low/medium-complexity issues are workhorse-tier work. Spawn an **opus implementer only for a non-trivial issue** — genuine design latitude, cross-cutting change surface, or a prior sonnet failure on the same issue — and note which issues got opus in the progress table.
+- **Triage/classification on haiku.** The queue triage pass (complexity read, skip-criteria checks, label classification) runs on haiku at low effort; sample-verify ~10% of its classifications with a stronger model rather than running the whole triage on an expensive tier.
+- **Fan-out budget: ~12-20 subagents per run** (implementers + reviewers + triage/verify passes across all batches). Exceeding it requires an explicit one-line justification recorded in the session summary.
 
 Each agent independently:
 1. Installs dependencies in its worktree
@@ -395,4 +401,4 @@ This makes the skill **idempotent** — safe to re-run without duplicating work.
 14. **Pre-Skill Checkpoint** — Re-read CLAUDE.md and skill files before each /full-review run.
 15. **Compose existing skills** — /full-review is called as-is. Don't reinvent its logic.
 
-<!-- skill-templates: parallel-dev 6a1a98b 2026-06-08 -->
+<!-- skill-templates: parallel-dev a9ed830 2026-07-30 -->

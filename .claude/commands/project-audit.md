@@ -107,11 +107,6 @@ Choose AGENT_COUNT agents. Always include all 5 core agents. Fill remaining slot
 | Dependency Health | "Auditor" | Outdated dependencies, CVEs, license compliance, dependency weight, vendoring strategy | `dependency_count` > 20 OR `security_surface` is high | Supply chain security expert who treats every dependency as a liability. Checks for outdated packages, known vulnerabilities, license conflicts, unnecessary dependencies, and whether the dependency tree is well-managed. |
 | Competitive Analysis | "Scout" | Industry standards, competing projects, missing table-stakes features, differentiation | Project is a product or library (not internal tooling) | Product strategist who knows the competitive landscape. Compares against similar projects and industry standards. Identifies table-stakes features that are missing and areas where the project could differentiate. |
 | API Design | "Contract" | API consistency, REST/GraphQL conventions, versioning, error formats, pagination, rate limiting | `has_api` | API design purist who has read every RFC. Evaluates endpoint naming, HTTP method usage, error response consistency, pagination patterns, versioning strategy, and whether the API is self-documenting. |
-
-**repo-memory domain-specific optional agents** (append these rows to the Optional Roster table above):
-
-| Agent | Nickname | Lens | Auto-Include When | Personality |
-|-------|----------|------|-------------------|-------------|
 | Cache Correctness | "Curator" | Cache invalidation, hash determinism (SHA-256), staleness, change tracking, race conditions, never returning out-of-date data | Always (this is the core invariant of repo-memory) | Correctness zealot who lives by "cache correctness over cache performance — never return stale data." Hunts for missed invalidations, non-deterministic hashing, file-rename/delete edge cases, and any path where a stale summary could leak to a caller. Treats a wrong cached answer as worse than no answer. |
 | MCP Protocol Conformance | "Envoy" | MCP tool schemas, stdio transport hygiene, tool ROI/token cost, error responses, no `console.log` polluting stdout | Always (this is an MCP server) | Protocol pedant who knows the Model Context Protocol spec cold. Verifies tool input/output schemas, that stdio transport is never corrupted by stray stdout writes (no `console.log` in production), that errors surface as proper MCP responses, and that each tool justifies its ~100 tokens/turn system-prompt cost. |
 
@@ -219,6 +214,13 @@ Single rating X.X/5 with one-paragraph justification.
 ```
 
 **Batching:** Launch agents in parallel batches. First batch of up to 5 agents, then remaining agents in a second batch. Do NOT run agents in the background — use foreground Task calls so output returns directly.
+
+**Delegation tiers (cost discipline — do not strip):**
+
+- **Audit agents run on sonnet by default.** Codebase exploration and per-lens reporting are workhorse-tier work; do not spawn panel agents on opus or above. The orchestrator's master assessment (step 7) is where the expensive judgment lives.
+- **Discovery pre-pass on haiku.** The step-2 profile scan's mechanical parts (file inventories, signal detection, dependency counts) can run on haiku at low effort; the orchestrator interprets the results.
+- **Sample-verify instead of up-tiering.** Before filing issues from agent recommendations (step 8), re-check a ~10% sample of the load-bearing findings with a stronger model rather than re-running agents on a higher tier.
+- **Fan-out budget: ~12 subagents per run** (panel capped at 12 already; pre-pass and verify agents count against the same budget). Exceeding it requires an explicit one-line justification in the master assessment.
 
 ### 6. Write Individual Reports
 
@@ -519,4 +521,4 @@ Create `.claude/audit-config.json` to set defaults for this project:
 /project-audit include=deployer verbosity=brief
 ```
 
-<!-- skill-templates: project-audit aae4d65 2026-06-08 -->
+<!-- skill-templates: project-audit a9ed830 2026-07-30 -->

@@ -51,8 +51,6 @@ Pick AGENT_COUNT agents from the roster. Always include the core 3. Fill remaini
 | Futurist | Tech debt introduced, maintainability cost, extensibility impact | Changes introduce new patterns, abstractions, or architectural decisions |
 | Adversary | Security holes, input validation, auth bypass, injection vectors | Changes touch auth, user input, API boundaries, or external data |
 | Tester | Test coverage, untested paths, edge cases, test quality | Changes include complex logic, new features, or modify existing tests |
-| Cache Warden | Stale-data risk, hash determinism, invalidation correctness, cache-coherency invariants | Changes touch `src/cache/`, `src/indexer/`, `src/persistence/`, SHA-256 hashing, or cache invalidation paths |
-| Protocol Steward | MCP tool surface, stdio contract, tool-count/token ROI, schema and response shape | Changes touch `src/server.ts`, `src/tools/`, MCP tool definitions, or stdio transport behavior |
 
 ### 3. Launch Agents
 
@@ -94,6 +92,13 @@ Audit this pull request from the lens of **{LENS}**.
 ```
 
 Run agents as foreground Task calls. If more than 4 agents, batch: first 4 in parallel, then the rest.
+
+**Delegation tiers (cost discipline — do not strip):**
+
+- **Panel agents run on sonnet by default.** Reading a diff through a persona lens is workhorse-tier work; do not spawn panel agents on opus or above. The orchestrator's synthesis (step 4) carries the expensive judgment.
+- **Mechanical prep on haiku.** Building the context bundle (file lists, diff chunking) and any pre-classification of changed files runs on haiku at low effort.
+- **Sample-verify instead of up-tiering.** If the panel's findings look unreliable, re-check a ~10% sample with a stronger model rather than re-running the panel on a higher tier.
+- **Fan-out budget: ~12 subagents per run** (panel + verify passes). Exceeding it requires an explicit one-line justification in the synthesis.
 
 ### 4. Synthesize and Report
 
@@ -143,4 +148,4 @@ After presenting the synthesis, ask the user:
 | 2 | Concerning — significant issues to resolve first |
 | 1 | Do not merge — needs rework |
 
-<!-- skill-templates: agentic-audit 3f616c3 2026-06-08 -->
+<!-- skill-templates: agentic-audit a9ed830 2026-07-30 -->

@@ -49,6 +49,7 @@ Choose AGENT_COUNT agents from this roster. Always include the first 4 (core pan
 | Adversary | "Adversary" | Attack surface, abuse cases, security boundaries | Target involves auth, networking, data handling, or external interfaces |
 | Tester | "Tester" | Testability, edge cases, coverage gaps, test strategy | Target involves complex logic, state machines, or protocol design |
 | Historian | "Historian" | Precedent, prior art, industry patterns, what others have done | Target involves novel architecture or unconventional approaches |
+
 | Cache Correctness | "Cache" | Stale-data risks, hash/invalidation correctness, never-return-stale invariant | Target touches the cache engine, file hashing (SHA-256), or invalidation logic |
 | MCP Protocol | "Protocol" | MCP tool contracts, stdio transport, schema/param shape, token-cost ROI of tools | Target adds or changes MCP tools, server handlers, or stdio I/O |
 
@@ -86,6 +87,13 @@ Your job is to audit the following from the lens of **{LENS}**.
 ```
 
 **IMPORTANT**: Do NOT run agents in the background. Run them as foreground Task calls so their output returns directly. If running more than 4 agents, batch them: first 4 in parallel, then remaining agents in parallel.
+
+**Delegation tiers (cost discipline — do not strip):**
+
+- **Audit agents run on sonnet by default.** The default subagent model for panel agents is sonnet — audit breadth is workhorse-tier work. Do not spawn panel agents on opus or above; the orchestrator's synthesis (step 6) is where the expensive judgment lives.
+- **Pre-filter on haiku.** Any triage/classification pre-pass (e.g. deciding which files or sections are in scope before the panel reads them) runs on haiku at low effort.
+- **Sample-verify instead of up-tiering everything.** If panel output quality is in doubt, have a stronger model re-check a ~10% sample of findings rather than re-running the whole panel on a higher tier.
+- **Fan-out budget: ~12 subagents per run** (panel + any pre-filter/verify passes combined). Exceeding it requires an explicit one-line justification recorded in the master assessment.
 
 ### 5. Write Individual Reports
 
@@ -203,4 +211,4 @@ For cache/indexer/persistence targets, Cache and Guardian must weight the "cache
 /swarm-audit "session management across server restart" 6
 ```
 
-<!-- skill-templates: swarm-audit c8b8477 2026-06-08 -->
+<!-- skill-templates: swarm-audit a9ed830 2026-07-30 -->

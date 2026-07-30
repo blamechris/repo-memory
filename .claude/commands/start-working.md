@@ -9,7 +9,7 @@ This skill is **read-only** — it never writes files, creates issues, or commit
 - `$ARGUMENTS` - Optional filters. Space-separated tokens:
   - `focus=AREA` — Narrow to a specific area (e.g., `focus=testing`, `focus=security`, `focus=performance`)
   - `limit=N` — Max items to show per source (default: 10)
-  - `include-closed` — Also scan recently closed issues (last 7 days) for context
+  - `include-closed` — Also scan recently closed issues for context
   - If empty, scan everything with defaults
 
 Examples:
@@ -27,7 +27,6 @@ Examples:
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 REPO_NAME=$(basename "$REPO")
-DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 ```
 
 Parse `$ARGUMENTS` for `focus`, `limit` (default 10), and `include-closed` flag.
@@ -52,9 +51,9 @@ Categorize each open issue:
 
 | Category | Detection |
 |----------|-----------|
-| Blocked | Has label matching: `blocked`, `wontfix`, `needs-design-spike`, `design-spike` |
+| Blocked | Has label matching: `blocked`, `wontfix`, `needs-design`, `on-hold` |
 | Assigned | Has assignees (someone is already working on it) |
-| Ready | Has `complexity:low`/`complexity:medium`, `good first issue`, or `help wanted` plus acceptance criteria in the body |
+| Ready | `complexity:low`/`complexity:medium`, `good first issue`, or `help wanted` plus acceptance criteria in the body |
 | Backlog | Open, unassigned, not blocked, but no explicit "ready" signal |
 
 For "Ready" and "Backlog" issues, read the issue body to check for acceptance criteria:
@@ -180,7 +179,7 @@ If `focus=AREA` is set, filter to only show items related to that area. Match ag
 
 ### 3. Present Work Queue
 
-Output the primary summary table, then detail sections for each source.
+Output the primary summary table, then detail sections for each source. Cap each detail section to the top `limit` items (default 10) by priority — the queries fetch a wide net so categorization is accurate, but only the most relevant `limit` rows per source are shown. Note any truncation (e.g. "showing top 10 of 23").
 
 #### Primary Output — Work Queue Table
 
@@ -342,4 +341,4 @@ Run `/project-audit` for a comprehensive multi-agent analysis with detailed reco
 7. **Composable output** — The "Recommended Next Action" section should include copy-pasteable commands (e.g., `/autonomous-dev-flow #12 #18 #25`) so the user can immediately act on the findings.
 8. **No file writes** — The fallback audit in Phase 4 outputs to the conversation only. Unlike `/project-audit`, it does NOT write report files or create a `docs/` directory.
 
-<!-- skill-templates: start-working 15d7b73 2026-06-08 -->
+<!-- skill-templates: start-working 5df829a 2026-07-30 -->

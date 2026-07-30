@@ -57,11 +57,16 @@ Write markdown in this structure (the schema `/skill` expects). The first three 
 - Commit style + scopes: <conventional commits; scope list>
 - Source file patterns: <globs the skills should target>
 
+## Skill Targets
+targets: <comma-separated agents this repo drives — e.g. claude, gemini, codex>
+
 ## <skill-name> Customizations
 <Exactly what that skill's customization markers need — persona, labels, review
 criteria, audit focus, required-check names, publish footguns, etc. Head each
 section with the skill's exact name + the literal " Customizations" suffix.>
 ```
+
+The `targets:` line drives `compile-skill-targets.mjs` (`claude` → `.claude/skills/<name>/SKILL.md`, `gemini` → `.gemini/commands/<name>.toml`, `codex` → `.codex/skills/<name>/SKILL.md`). All three emit version-controlled, repo-tracked artifacts, so any combination is safe to commit.
 
 ### 4. Rules (match the registry's profile contract)
 
@@ -70,6 +75,7 @@ section with the skill's exact name + the literal " Customizations" suffix.>
 - **No secrets.** The profile is committed. Keys, tokens, OTP secrets never go here (a publish footgun like "OTP is interactive, don't retry" is fine — a *value* is not).
 - **Capture hard-won footguns.** If a skill has bitten this repo before (a release OTP quirk, a native-module/runtime constraint, a lint-vs-typecheck gap), record it in that skill's section — that is the highest-value content a profile carries.
 - **Keep it tight.** The profile is read on every install; favor specifics over prose.
+- **Targets are version-controlled.** Every agent in `targets:` emits a repo-tracked artifact (`claude` → `.claude/skills/`, `gemini` → `.gemini/commands/`, `codex` → `.codex/skills/`) — list exactly the agents this repo drives. Codex users on machines without repo-local discovery copy/sync `.codex/skills/<name>` into `~/.codex/skills`.
 
 ### 5. Write / report
 
@@ -87,4 +93,4 @@ State: the sections written, which installed skills got a `Customizations` secti
 - **`profileHash`.** `/skill` records the profile's hash in `.claude/skills.lock`; `skill outdated` flags skills tailored against an older profile, so refreshing the profile and running `skill update` re-tailors them. Updating the profile is how you push a convention change out to every installed skill.
 - **Idempotent.** Re-running reproduces the same profile from the same repo state; it only changes when the repo does.
 
-<!-- skill-templates: skill-profile ecb5d01 2026-06-09 -->
+<!-- skill-templates: skill-profile ea888eb 2026-07-30 -->

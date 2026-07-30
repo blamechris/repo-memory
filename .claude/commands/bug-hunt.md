@@ -15,9 +15,9 @@ This is the issue-filing flavor of `/swarm-audit`. Use it when your goal is "pop
 
 Examples:
 ```
-/bug-hunt src/cache
-/bug-hunt "the cache invalidation logic" hunters=5
-/bug-hunt src/persistence severity-floor=major auto-file=critical
+/bug-hunt src/payments
+/bug-hunt "the websocket reconnection logic" hunters=5
+/bug-hunt src/auth severity-floor=major auto-file=critical
 /bug-hunt . hunters=6 output=docs/audit/pre-release
 ```
 
@@ -139,6 +139,13 @@ Cap your findings at 6. Quality over quantity.
 
 **Run hunters as foreground Agent calls.** If HUNTER_COUNT > 4, batch: first 4 in parallel, then the rest.
 
+**Delegation tiers (cost discipline — do not strip):**
+
+- **Hunters run on sonnet by default.** Bug-hunting breadth is workhorse-tier work; do not spawn hunters on opus or above. The orchestrator's dedup/triage (step 5) and the user-facing report are where the expensive judgment lives.
+- **Mechanical passes on haiku.** The step-5 dedup key matching, severity-floor filtering, and any pre-filter over candidate files run on haiku at low effort.
+- **Sample-verify instead of up-tiering.** If hunter findings look noisy, re-check a ~10% sample with a stronger model before filing anything; a finding that fails its sample check sends the whole batch back for verification, not for a full re-run on a higher tier.
+- **Fan-out budget: ~12 subagents per run** (hunters + verify passes combined). Exceeding it requires an explicit one-line justification in the report.
+
 ### 5. Dedup and Triage
 
 After hunters return, build the unified candidate list:
@@ -211,7 +218,7 @@ For each candidate the user accepts, file an issue using the same shape as `/cre
 ```bash
 gh issue create \
   --title "${TITLE}" \
-  --label "bug" \
+  --label "bug,from-bug-hunt" \
   --body "$(cat <<EOF
 ## Symptom
 ${SYMPTOM}
@@ -295,11 +302,11 @@ When the target touches `src/cache/`, `src/indexer/`, or `src/persistence/`, Gua
 ## Examples
 
 ```
-/bug-hunt src/cache
-/bug-hunt "the cache invalidation logic" hunters=5
-/bug-hunt src/persistence severity-floor=major
+/bug-hunt src/payments
+/bug-hunt "the websocket reconnection logic" hunters=5
+/bug-hunt src/auth severity-floor=major
 /bug-hunt . hunters=6 auto-file=critical
-/bug-hunt src/indexer hunters=3 output=-
+/bug-hunt src/storage hunters=3 output=-
 ```
 
 ## Comparison to Sister Skills
@@ -312,6 +319,6 @@ When the target touches `src/cache/`, `src/indexer/`, or `src/persistence/`, Gua
 | "Audit a design doc / RFC" | `/swarm-audit` |
 | "Review this PR before merge" | `/agentic-audit` |
 
-A typical pipeline: `/recon src/cache` → `/bug-hunt src/cache` → `/tackle-issues` on the newly-filed issues.
+A typical pipeline: `/recon src/payments` → `/bug-hunt src/payments` → `/tackle-issues` on the newly-filed issues.
 
-<!-- skill-templates: bug-hunt 7f5fa28 2026-06-08 -->
+<!-- skill-templates: bug-hunt a9ed830 2026-07-30 -->

@@ -60,6 +60,8 @@ The agent reviews against these standards:
 
 ### 3. Generate Review
 
+**Deciding vs escalating.** A finding is not automatically a question for the user. If the code, the git history, the issue thread or the docs answer it, answer it in the review; if the call is cheap and reversible, state it, note the assumption, and move on. Escalate to the user only when the answers lead to materially different work, or the action is irreversible or outward-facing — and when you do, escalate through `/decide` (the `AskUserQuestion` tool, 2-4 concrete options, your recommendation first with its costs named), never as prose buried in the review body. Keep reviewing the rest of the diff while the question is open.
+
 Create a comprehensive review:
 
 ```markdown
@@ -122,6 +124,7 @@ EOF
 Never leave deferred items as just review comments. If it's worth mentioning, it's worth tracking.
 
 ```bash
+# Labels: enhancement + from-review (repo-memory issue taxonomy)
 ISSUE_URL=$(gh issue create \
   --title "Short descriptive title" \
   --label "enhancement" \
@@ -198,4 +201,4 @@ You are an expert code reviewer with deep knowledge of the project's tech stack.
 4. **Reliability first** - Always consider error recovery and edge cases
 5. **Keep it simple** - No over-engineering, no premature abstractions
 
-<!-- skill-templates: agent-review a10ef75 2026-06-08 -->
+<!-- skill-templates: agent-review 5c35725 2026-07-30 -->

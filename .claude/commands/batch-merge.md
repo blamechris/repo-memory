@@ -52,8 +52,13 @@ gh pr checks ${PR_NUM} --json name,state \
   --jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | length'
 
 # Copilot review presence
+# Copilot bot login: copilot-pull-request-reviewer[bot] (GitHub.com)
+# DISMISSED is excluded on purpose: after `dismiss_stale_reviews` fires, a
+# superseded review is still returned by this endpoint, so counting it reports
+# the gate as satisfied by a review of code that no longer exists.
 gh api repos/${REPO}/pulls/${PR_NUM}/reviews \
-  --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | length'
+  --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")
+             | select(.state != "DISMISSED")] | length'
 ```
 
 Update the progress table with pre-flight results. This is informational — does not block the loop.
@@ -65,6 +70,7 @@ Process PRs in order. For each PR:
 #### Step 2a: Check CI
 
 ```bash
+# Required check: ci (single job in ci.yml)
 REQUIRED_CHECKS=("ci")
 
 CHECKS=$(gh pr checks ${PR_NUM} --json name,state)
@@ -79,7 +85,8 @@ All required checks must be `SUCCESS` or `SKIPPED`. If any are failing or pendin
 
 ```bash
 COPILOT_STATUS=$(gh api repos/${REPO}/pulls/${PR_NUM}/reviews \
-  --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] |
+  --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")
+             | select(.state != "DISMISSED")] |
     if length == 0 then "NOT_FOUND"
     elif any(.[]; .state == "PENDING") then "IN_PROGRESS"
     else "COMPLETED" end')
@@ -91,6 +98,14 @@ Copilot review **must be present** before merge. This is the quality gate.
 - **IN_PROGRESS:** Poll every 30s, max 5 min.
 - **NOT_FOUND + PR < 8 min old:** Poll every 30s, max 8 min. Copilot takes 3-5 min to start.
 - **NOT_FOUND + PR >= 8 min old:** Proceed with warning (Copilot won't come for old PRs).
+
+Compute the age rather than estimating it — the branch above is only reproducible
+if both operators derive it the same way:
+
+```bash
+PR_AGE_MIN=$(gh pr view ${PR_NUM} --json createdAt \
+  --jq '((now - (.createdAt | fromdateiso8601)) / 60) | floor')
+```
 
 #### Step 2c: Address Unaddressed Copilot Comments
 
@@ -104,6 +119,7 @@ ALL_COMMENTS=$(gh api repos/${REPO}/pulls/${PR_NUM}/comments --paginate)
 WORKFLOW_USER=$(gh api user --jq .login)
 
 # Copilot-authored top-level comments (not replies) that have no reply from us.
+# Copilot bot login: copilot-pull-request-reviewer[bot] (GitHub.com)
 # Scope to the Copilot bot so this step only processes Copilot threads, as the
 # heading claims — human review comments are out of scope for batch-merge.
 UNREPLIED=$(echo "$ALL_COMMENTS" | jq --arg user "$WORKFLOW_USER" '
@@ -129,6 +145,7 @@ For each unreplied comment, handle using the 3-outcome model from `/check-pr`:
 if [ "$DRY_RUN" = true ]; then
   echo "DRY RUN: Would merge PR #${PR_NUM}"
 else
+  # Merge strategy: --squash (repo uses squash merges)
   gh pr merge ${PR_NUM} --squash
 fi
 ```
@@ -153,6 +170,7 @@ If `update-branch` fails with a conflict, mark the next PR as `Blocked` and try 
 #### Step 2f: Wait for CI on Updated Branch
 
 ```bash
+# CI wait: 180s timeout, 30s poll interval (typical CI runtime for this repo)
 MAX_WAIT=180  # 3 minutes
 INTERVAL=30
 
@@ -289,4 +307,4 @@ After all PRs processed:
 9. **Compose with `/fix-ci`** — Don't reinvent CI diagnosis.
 10. **No attribution** — Follow project's attribution policy in any fix commits.
 
-<!-- skill-templates: batch-merge 0a76684 2026-06-08 -->
+<!-- skill-templates: batch-merge 8c8e472 2026-07-30 -->
