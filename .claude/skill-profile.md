@@ -77,6 +77,19 @@
 - Work sources: open GitHub issues + open PRs; design docs under `docs/planning/`. Ready signals: `complexity:low`/`complexity:medium`, `good first issue`, `help wanted`. Blocked signals: `wontfix`, `design-spike`.
 
 ## tackle-issues Customizations
+
+### Self-merge posture
+
+**Withheld.** Every merge in this repo is a human act. However clean the review and
+the checks are, PRs accumulate for `/batch-merge` or user review rather than
+self-merging, so Critical Rule 5 must be written in its WITHHELD form. `merge:on`
+is not honoured: an invocation flag cannot grant authority the repo withholds.
+
+Recorded in the profile, not just in the installed skill: `.claude/commands/` is
+regenerated on every `skill update`, this file is not. Without this line the next
+update takes the template default — gated self-merge — and silently re-enables
+unattended merges that were deliberately withheld.
+
 - Branch prefix `auto/`; worktrees under `.claude/worktrees/`. Per-issue verification = the full gate; run `npm run lint` independently (worktree agents leave unused vars that pass typecheck but fail lint).
 
 ## merge Customizations
@@ -95,6 +108,19 @@
 - Per-agent verification = the full gate `npm run typecheck && npm run lint && npm test && npm run build`. Worktrees under `.claude/worktrees/`; run lint independently (typecheck-passes/lint-fails footgun).
 
 ## autonomous-dev-flow Customizations
+
+### Self-merge posture
+
+**Withheld.** Every merge in this repo is a human act. However clean the review and
+the checks are, PRs accumulate for the user rather than self-merging, so Critical
+Rule 5 must be written in its WITHHELD form and the Unattended Merge Gate does not
+apply here.
+
+Recorded in the profile, not just in the installed skill: `.claude/commands/` is
+regenerated on every `skill update`, this file is not. Without this line the next
+update takes the template default — gated self-merge — and silently re-enables
+unattended merges that were deliberately withheld.
+
 - Full-gate verification per agent; worktrees under `.claude/worktrees/`; lint independently. Decompose only issues genuinely too large to implement directly.
 
 ## smoke-test Customizations
