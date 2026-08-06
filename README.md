@@ -31,6 +31,8 @@ What it stores:
 
 ## Quick Start
 
+*The [demo GIF at the top](#repo-memory) shows the `index` → `report` workflow from the steps below.*
+
 ### With Claude Code
 Add to your Claude Code MCP settings:
 ```json
