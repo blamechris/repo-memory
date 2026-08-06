@@ -1,3 +1,13 @@
+> **Status: RESOLVED**
+>
+> | Audit date | Resolution date | Fixing PRs |
+> |---|---|---|
+> | 2026-06-09 | 2026-06-10 | [#169](https://github.com/blamechris/repo-memory/pull/169), [#170](https://github.com/blamechris/repo-memory/pull/170), [#172](https://github.com/blamechris/repo-memory/pull/172) |
+>
+> The cache-poisoning bug (`get_changed_files` serving a stale summary under a new hash) and the dependency-graph corruption (unused persisted graph, torn non-transactional writes, phantom import paths) described below were fixed in the PRs above; the report is preserved unedited as the historical audit record.
+
+---
+
 # Minimalist's Audit: Agent-Facing Search & Retrieval Efficiency
 
 **Agent**: Minimalist -- ruthless engineer who believes the best code is no code; identifies what to cut

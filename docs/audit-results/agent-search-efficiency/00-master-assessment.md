@@ -1,3 +1,13 @@
+> **Status: RESOLVED**
+>
+> | Audit date | Resolution date | Fixing PRs |
+> |---|---|---|
+> | 2026-06-09 | 2026-06-10 | [#169](https://github.com/blamechris/repo-memory/pull/169), [#170](https://github.com/blamechris/repo-memory/pull/170), [#172](https://github.com/blamechris/repo-memory/pull/172) |
+>
+> The cache-poisoning bug (`get_changed_files` serving a stale summary under a new hash) and the dependency-graph corruption (unused persisted graph, torn non-transactional writes, phantom import paths) described below were fixed in the PRs above; the report is preserved unedited as the historical audit record.
+
+---
+
 # Master Assessment: Agent-Facing Search & Retrieval Efficiency
 
 **Target:** "How agents search via repo-memory" — efficiency/quality gains available on the retrieval path (`search_by_purpose`, `get_related_files`, `get_dependency_graph`, `get_project_map`, ranking), evaluated against six candidate ideas from the wild: FTS5/BM25, embeddings, persisted dependency graph, symbol index, query-result caching, token-budget shaping.
