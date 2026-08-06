@@ -1,19 +1,37 @@
 # repo-memory
 
-An MCP server that gives AI coding agents persistent memory about your codebase. Stop wasting tokens re-reading files your agent already understands.
+An MCP server that gives coding agents persistent repository memory — cut repeated file reads, tokens, and latency.
 
-## Why?
+[![CI](https://github.com/blamechris/repo-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/blamechris/repo-memory/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40blamechris%2Frepo-memory)](https://www.npmjs.com/package/@blamechris/repo-memory)
+[![License: MIT](https://img.shields.io/github/license/blamechris/repo-memory)](LICENSE)
+[![Node](https://img.shields.io/node/v/%40blamechris%2Frepo-memory)](package.json)
 
-Every time an AI agent explores your project, it re-reads files from scratch — burning tokens on code it's already seen. On a 200-file project, that's **~43,000 tokens wasted per exploration pass**.
+![Terminal session: repo-memory index summarizes 186 files in 0.22 seconds, then repo-memory report shows a 96.6 percent cache-hit ratio and roughly 209,000 tokens saved](docs/assets/terminal-index-report.gif)
 
-repo-memory fixes this:
-- **Caches file summaries** — exports, imports, purpose, declarations, line count
-- **Tracks changes** — only re-reads files that actually changed (SHA-256 hash comparison)
-- **Dependency graphs** — understands which files depend on which
-- **Task memory** — remembers what's been explored across conversation turns
+*The `index` → `report` workflow on this repository. The numbers are real — 186 files indexed in 0.22s, 96.6% cache-hit ratio, ~209K tokens saved — though the cache traffic between the two on-screen commands was scripted for the recording; treat it as a demo of the workflow, not an unedited live session.*
+
+## Why repo-memory?
+
+Every time an AI agent explores your project, it re-reads files from scratch — burning tokens on code it's already seen. An agent touches the same files 3–5 times per session, and on a 200-file project that's **~43,000 tokens wasted per exploration pass** ([benchmarks below](#performance)).
+
+Compared to what agents do by default:
+
+- **Plain re-reading** pays full price every time. repo-memory serves a ~3.6x-compressed summary (exports, imports, purpose, declarations) on every access after the first, at sub-millisecond speed.
+- **grep/glob** finds text, not structure. repo-memory extracts real exports, imports, and dependency edges, so agents can ask "what depends on this file?" or search by what a file *does* (`search_by_purpose`).
+- **Naive caching** goes stale. repo-memory SHA-256-hashes every file on every access — a changed file always gets a fresh summary, so agents never act on outdated structure.
+- **Claims vs. measurement**: savings aren't asserted, they're recorded. Every cache event is logged, and `repo-memory report` shows the hit ratio and tokens saved on *your* repository.
+
+What it stores:
+- **File summaries** — exports, imports, purpose, declarations, line count
+- **Change tracking** — only re-reads files that actually changed (SHA-256 hash comparison)
+- **Dependency graphs** — which files depend on which
+- **Task memory** — what's been explored across conversation turns
 - **Token telemetry** — measures and proves the savings
 
 ## Quick Start
+
+*The [demo GIF at the top](#repo-memory) shows the `index` → `report` workflow from the steps below.*
 
 ### With Claude Code
 Add to your Claude Code MCP settings:
@@ -121,6 +139,10 @@ Tools are organized into **groups**. `navigation` and `summaries` are **on by de
 ## Token Savings Tracking
 
 repo-memory tracks every cache interaction so you can measure exactly how many tokens you're saving. Call `get_token_report` at any time to see your stats.
+
+![repo-memory report --diagnostics output: 147 events with a 96.6 percent hit ratio, roughly 208,882 tokens saved, top files by token impact, and 186 cache entries in a 0.2 MB database](docs/assets/still-report.png)
+
+*`repo-memory report --diagnostics` on this repository after a full index and an agent session.*
 
 ### What gets tracked
 
@@ -244,6 +266,14 @@ The dependency graph (`get_related_files`, `get_dependency_graph`) extracts impo
 
 Config files (JSON, YAML, TOML) and other file types get basic classification.
 
+## Documentation
+
+- [docs/usage.md](docs/usage.md) — full reference for every MCP tool and CLI subcommand, with example inputs and outputs
+- [docs/agent-patterns.md](docs/agent-patterns.md) — recommended usage patterns for agents (first-visit, change-review, investigation)
+- [docs/claude-code-setup.md](docs/claude-code-setup.md) — step-by-step Claude Code setup
+- [docs/claude-md-snippet.md](docs/claude-md-snippet.md) — a `CLAUDE.md` snippet that teaches agents to prefer the cached tools
+- [docs/planning/](docs/planning) — design documents (dependency graph, task memory, relevance ranking, AST summarizer spike)
+
 ## Development
 
 ```bash
@@ -257,5 +287,8 @@ npm run lint       # ESLint
 npm run build      # compile
 ```
 
-## License
-MIT
+See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions, test structure, and the PR process.
+
+---
+
+[Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Security](SECURITY.md) · [MIT License](LICENSE)

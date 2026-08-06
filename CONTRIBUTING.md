@@ -66,7 +66,8 @@ src/
     gc.ts             #   Garbage collection for stale entries
   indexer/            # File analysis pipeline
     scanner.ts        #   Project file discovery (respects .gitignore)
-    summarizer.ts     #   Regex-based file summarization
+    ast-summarizer.ts #   Tree-sitter (AST) file summarization — the default
+    summarizer.ts     #   Regex-based file summarization (fallback)
     smart-summarizer.ts # Enhanced summarization
     imports.ts        #   Import/export extraction
     diff-analyzer.ts  #   Change detection
@@ -88,7 +89,7 @@ src/
 
 - **SQLite with WAL mode:** Enables concurrent reads while writing. Database stored at `.repo-memory/cache.db` in the target project.
 - **SHA-256 hashing:** Deterministic file comparison. If the hash has not changed, the cached summary is still valid.
-- **Regex-based summarization:** No AST parsing required. Fast extraction of exports, imports, and declarations. Trades some accuracy for speed.
+- **AST-first summarization with a regex fallback:** Tree-sitter parsing (the default) produces accurate exports, declarations, and semantic purpose lines; the regex summarizer remains the universal fallback for unsupported languages and unparseable files.
 - **ESM only:** The project uses `"type": "module"` and NodeNext module resolution.
 - **Cache correctness over performance:** The system never returns stale data. If in doubt, it re-reads the file.
 
