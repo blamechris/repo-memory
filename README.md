@@ -5,6 +5,7 @@ An MCP server that gives coding agents persistent repository memory — cut repe
 [![CI](https://github.com/blamechris/repo-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/blamechris/repo-memory/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/%40blamechris%2Frepo-memory)](https://www.npmjs.com/package/@blamechris/repo-memory)
 [![License: MIT](https://img.shields.io/github/license/blamechris/repo-memory)](LICENSE)
+[![Node](https://img.shields.io/node/v/%40blamechris%2Frepo-memory)](package.json)
 
 ![Terminal session: repo-memory index summarizes 186 files in 0.22 seconds, then repo-memory report shows a 96.6 percent cache-hit ratio and roughly 209,000 tokens saved](docs/assets/terminal-index-report.gif)
 
