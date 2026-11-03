@@ -1,48 +1,39 @@
-# Merge Gate Pattern
+# Merge Gate Recovery
 
 ## Purpose
 
-Short-circuit token-expensive diagnostic reasoning when `gh pr merge` fails due to branch protection. The most common blocker is unresolved review threads. When the workflow has permission, the installed skills (`/check-pr`, `/merge`, `/batch-merge`) resolve those threads automatically via the GraphQL `resolveReviewThread` mutation; this handoff pattern is the fallback for when automated resolution is unavailable or has already run and a human still needs to resolve remaining threads via the GitHub UI. This pattern turns a multi-step investigation into a 2-line handoff.
+Recover a blocked merge using current evidence and supported tools. The agent owns review, remediation and merge for delegated implementation in both ordinary and prime-directive runs. A failed merge is a reason to inspect the failed gate, not automatically a task for the user.
 
-## The Problem
+## Recovery procedure
 
-Without this pattern, when merge fails the agent:
-1. Reads the error message
-2. Reasons about possible causes
-3. Runs `gh pr checks` to investigate
-4. Composes a thoughtful diagnostic message
-5. Asks the user what to do
-
-All of that is wasted tokens — the answer is almost always "go resolve threads."
+1. **Re-read the gate at the CURRENT head.** Query the PR's `headRefOid`, `mergeable`, `mergeStateStatus`, checks and review state after every push or base update. A stale `BLOCKED` or `CLEAN` reading is not evidence about the new head. `UNKNOWN` is an unresolved state; use the host's supported status/continuation mechanism to obtain a fresh result rather than inventing a blocker or bypassing a host restriction.
+2. **Identify the actual failed requirement.** Inspect required checks, review findings and unresolved threads, required approvals, branch freshness/conflicts, permissions and any explicit user hold. Resolve contradictory readings from their underlying evidence. Do not guess that every block is an unresolved thread or claim that only humans can resolve threads.
+3. **Recover within delegated authority and remaining repair limits.** Use `/fix-ci` for a verified CI failure and `/check-pr` for findings. Resolve only threads with a supported current-head disposition; review summaries without threads still count. Update an owned PR branch or resolve its conflicts where authorized, preserve unrelated work, and repeat affected review/CI gates after changes. Dependencies between authorized PRs determine merge order; merge the ready prerequisite, then recheck its dependent PR.
+4. **Recheck every merge gate before retrying.** Require clean `/full-review` evidence covering the final head, ALL CI checks green on that commit, ALL review threads resolved with evidence, and repository protection satisfied. Never use `--admin`, `gh pr merge --auto`, GitHub auto-merge or a protection override. Merge synchronously and verify `MERGED`; update the ledger with the PR and merge SHA.
+5. **Escalate only the genuine prerequisite.** If a required human approval, missing permission, explicit hold, exhausted allowance or unsupported host operation prevents progress, report that exact requirement and evidence. Ask the owner only for an action reserved to them, state what the agent will resume afterward, and continue independent authorized work. An unresolved requirement stays blocked; a follow-up issue does not waive it.
 
 ## CLAUDE.md Snippet
 
-Add this to your repo's CLAUDE.md in the PR Workflow / merge section:
-
 ```markdown
-**Merge Gate — MANDATORY short-circuit when merge is blocked:**
-
-When `gh pr merge` fails with "base branch policy prohibits the merge":
-1. **Do NOT investigate, reason about, or run diagnostic commands.** The cause is almost always unresolved review threads.
-2. **Immediately respond with exactly this** (filling in the PR number):
-   > Merge blocked — unresolved review threads. Please resolve them here:
-   > https://github.com/blamechris/repo-memory/pull/{N}/files
-   >
-   > Say "done" when resolved.
-3. **Wait for user confirmation**, then retry `gh pr merge --squash`.
-4. If it fails a second time, THEN check `gh pr checks` for CI failures.
+**Merge recovery:** For delegated implementation in ordinary and prime-directive runs,
+the agent diagnoses and recovers a failed merge using current-head evidence and supported
+tools. Use `/merge-gate`; do not hand unresolved review threads to the owner by default.
+Clean `/full-review`, final-commit CI, supported thread dispositions and repository
+protection remain mandatory. Never use `--admin`, `gh pr merge --auto` or protection
+overrides. Ask only for a verified owner-reserved approval/access action or explicit hold;
+retain responsibility for the merge when that prerequisite is supplied.
 ```
 
-## Why This Works
+## Report a genuine block
 
-- **Set once, forget forever** — lives in CLAUDE.md, loaded every session
-- **Zero wasted tokens** — skips all diagnostic reasoning on first failure
-- **Human intervention point** — the fallback for threads the workflow cannot resolve automatically (no permission, or already attempted); a human resolves the remainder via the GitHub UI
-- **Graceful fallback** — second failure triggers real investigation
+> Merge blocked: #N at `<head SHA>` requires `<verified requirement>`.
+> Owner action: `<only the reserved action, or none>`.
+> Agent next: `<recheck/resume action after the prerequisite; independent work meanwhile>`.
 
-## Repos Using This Pattern
+Report host or budget limits as limits, not as a product decision. Follow the global status block and next-action convention.
 
-| Repo | Branch Protection | Comment Resolution Required |
-|------|------------------|----------------------------|
-| repo-memory | Yes | Yes |
-<!-- skill-templates: merge-gate 85269c8 2026-06-08 -->
+## Customization
+
+- Record repository-specific protection requirements, merge strategy and authorized recovery tools.
+- Preserve explicit user holds and genuinely required external approvals. Ordinary user presence is not a merge hold.
+<!-- skill-templates: merge-gate 37866a5 2026-11-03 -->

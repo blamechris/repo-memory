@@ -88,4 +88,4 @@ If `--dry-run`, make clear nothing was reverted, deprecated, or released.
 - **Forward-fix when revert is messy.** If too much was built on the bad change to revert cleanly, the safe path is often a corrective patch rather than an entangled revert; choose whichever leaves a coherent tree.
 - **No attribution** in revert PRs, deprecation messages, or release notes.
 
-<!-- skill-templates: rollback 969295a 2026-06-09 -->
+<!-- skill-templates: rollback 969295a 2026-11-03 -->
