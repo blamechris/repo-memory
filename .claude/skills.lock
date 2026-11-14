@@ -162,9 +162,12 @@
       "profileHash": "274ba5b"
     },
     "visual-brief": {
-      "hash": "a85c799",
-      "installed": "2026-07-30",
-      "profileHash": "274ba5b"
+      "hash": "4a39c94",
+      "installed": "2026-11-03",
+      "profileHash": "bf1adb3",
+      "targets": [
+        "claude"
+      ]
     }
   }
 }
