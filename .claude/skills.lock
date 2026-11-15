@@ -26,9 +26,9 @@
       ]
     },
     "batch-merge": {
-      "hash": "37866a5",
-      "installed": "2026-11-03",
-      "profileHash": "bf1adb3",
+      "hash": "8c8e472",
+      "installed": "2026-07-30",
+      "profileHash": "274ba5b",
       "targets": [
         "claude"
       ]
@@ -130,9 +130,9 @@
       ]
     },
     "merge": {
-      "hash": "2ea3022",
-      "installed": "2026-11-14",
-      "profileHash": "bf1adb3",
+      "hash": "d34b05d",
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b",
       "targets": [
         "claude"
       ]
