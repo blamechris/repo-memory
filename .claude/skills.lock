@@ -138,9 +138,9 @@
       ]
     },
     "merge-gate": {
-      "hash": "37866a5",
-      "installed": "2026-11-03",
-      "profileHash": "bf1adb3",
+      "hash": "85269c8",
+      "installed": "2026-06-08",
+      "profileHash": "274ba5b",
       "targets": [
         "claude"
       ]
