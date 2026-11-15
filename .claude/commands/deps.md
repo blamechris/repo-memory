@@ -92,4 +92,4 @@ Without `--apply`, change nothing — only propose the exact commands the user c
 ```
 
 End with a one-line recommendation: the single highest-value next action (e.g. "Clear the 2 high-severity advisories before the next /release").
-<!-- skill-templates: deps 04d63e7 2026-06-08 -->
+<!-- skill-templates: deps 04d63e7 2026-11-03 -->

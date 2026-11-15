@@ -12,7 +12,13 @@ Run an automated smoke test of the repo-memory MCP server. repo-memory is a HEAD
 
 ### 0. Prerequisites
 
-Verify the server is built and dependencies are installed:
+Verify the server is built, dependencies are installed, and the smoke checker script exists.
+
+**A missing script is not a dead end — it is the cue to write one.** If the script
+does not exist yet, the failure message MUST point at the "Writing the Smoke Test
+Script" section below, which is the recipe for creating it. A bare "not found" +
+`exit 1` makes this skill unusable in every repo that has not written the script
+yet, which is exactly the repo that needs the recipe most.
 
 ```bash
 # Build the server (compiles src → dist) and ensure deps are present
@@ -20,6 +26,18 @@ npm install
 npm run build
 # Confirm the stdio entry point exists
 test -f dist/server.js && echo "dist/server.js present" || { echo "MISSING dist/server.js — run 'npm run build'"; exit 1; }
+
+# Check the smoke test script exists. Customize only the path — keep the message
+# actionable, pointing at "Writing the Smoke Test Script" below.
+SMOKE_SCRIPT="scripts/check-smoke.mjs"
+test -f "$SMOKE_SCRIPT" || {
+  echo "Smoke test script not found at $SMOKE_SCRIPT."
+  echo "This is expected on first run. Write it now: follow the 'Writing the Smoke"
+  echo "Test Script' section of this skill (script structure, check patterns,"
+  echo "selector strategy, connection handling), save it to the path above, then"
+  echo "re-run /smoke-test."
+  exit 1
+}
 ```
 
 ### 1. Ensure Application is Running
@@ -94,7 +112,9 @@ The server process terminates on its own when the heredoc/stdin closes, so there
 
 ## Writing the Smoke Test Script
 
-If the test script doesn't exist yet, create it following these patterns:
+This is where step 0 sends you when the script is missing. If the test script
+doesn't exist yet, create it following these patterns, save it at the path step 0
+checks, then re-run the skill from step 0:
 
 ### Script Structure
 
@@ -185,4 +205,4 @@ Organize checks into logical groups:
 
 repo-memory has no `deploy.sh`. The "application" under test is the MCP server entry point `dist/server.js` (built from `src/server.ts` via `npm run build`); it speaks JSON-RPC over stdio with no HTTP/URL/browser surface. The smoke flow is build → spawn → `initialize` → `tools/list`. The repo's Zero Attribution Policy applies: never add co-author trailers, AI-generation footers, or any mention of AI assistance to commits, PRs, scaffolded scripts, or this file — the user is the sole author.
 
-<!-- skill-templates: smoke-test 21fa678 2026-06-08 -->
+<!-- skill-templates: smoke-test 8913398 2026-11-03 -->

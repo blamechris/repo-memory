@@ -86,4 +86,4 @@ From the first failing check, state the **root cause** (not just the symptom) an
 
 If every check passes, say so plainly and note the most likely place to look next if the user is still seeing a problem.
 
-<!-- skill-templates: doctor 04d63e7 2026-06-08 -->
+<!-- skill-templates: doctor 04d63e7 2026-11-03 -->

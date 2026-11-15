@@ -341,4 +341,4 @@ Run `/project-audit` for a comprehensive multi-agent analysis with detailed reco
 7. **Composable output** — The "Recommended Next Action" section should include copy-pasteable commands (e.g., `/autonomous-dev-flow #12 #18 #25`) so the user can immediately act on the findings.
 8. **No file writes** — The fallback audit in Phase 4 outputs to the conversation only. Unlike `/project-audit`, it does NOT write report files or create a `docs/` directory.
 
-<!-- skill-templates: start-working 5df829a 2026-07-30 -->
+<!-- skill-templates: start-working 5df829a 2026-11-03 -->
