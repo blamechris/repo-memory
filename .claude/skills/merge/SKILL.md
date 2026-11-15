@@ -179,7 +179,7 @@ Report verified merged PRs and exact blockers from the ledger. For ordinary deve
 | #123 | feat: add feature | Merged |
 | #456 | fix: resolve crash | Skipped (conflict) |
 
-**Version:** v1.2.3 → v1.2.4
+**Version:** unchanged — version bumps land via their own PR; report `vX → vY` only when the merged PR is that bump
 **Build:** typecheck + lint + test + build passed on main
 ```
 

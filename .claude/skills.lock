@@ -34,8 +34,8 @@
       ]
     },
     "bug-hunt": {
-      "hash": "600c374",
-      "installed": "2026-11-03",
+      "hash": "ff2aa86",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"
@@ -82,8 +82,8 @@
       ]
     },
     "decompose-issue": {
-      "hash": "699a5ca",
-      "installed": "2026-11-03",
+      "hash": "ff2aa86",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"
@@ -130,8 +130,8 @@
       ]
     },
     "merge": {
-      "hash": "37866a5",
-      "installed": "2026-11-03",
+      "hash": "2ea3022",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"
@@ -146,16 +146,16 @@
       ]
     },
     "parallel-dev": {
-      "hash": "37866a5",
-      "installed": "2026-11-03",
-      "profileHash": "bf1adb3",
+      "hash": "8196307",
+      "installed": "2026-07-30",
+      "profileHash": "274ba5b",
       "targets": [
         "claude"
       ]
     },
     "prime-directive": {
-      "hash": "84fe5f4",
-      "installed": "2026-11-03",
+      "hash": "0f0cc15",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"
@@ -194,9 +194,9 @@
       ]
     },
     "session-lifecycle": {
-      "hash": "bcb8822",
-      "installed": "2026-11-03",
-      "profileHash": "bf1adb3",
+      "hash": "8196307",
+      "installed": "2026-07-30",
+      "profileHash": "274ba5b",
       "targets": [
         "claude"
       ]
@@ -210,8 +210,8 @@
       ]
     },
     "skill-profile": {
-      "hash": "37866a5",
-      "installed": "2026-11-03",
+      "hash": "ff2aa86",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"
@@ -242,8 +242,8 @@
       ]
     },
     "tackle-issues": {
-      "hash": "84fe5f4",
-      "installed": "2026-11-03",
+      "hash": "0f0cc15",
+      "installed": "2026-11-14",
       "profileHash": "bf1adb3",
       "targets": [
         "claude"

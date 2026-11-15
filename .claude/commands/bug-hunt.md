@@ -335,4 +335,4 @@ When the target touches `src/cache/`, `src/indexer/`, or `src/persistence/`, Gua
 
 A typical pipeline: `/recon src/payments` → `/bug-hunt src/payments` → `/tackle-issues` on the newly-filed issues.
 
-<!-- skill-templates: bug-hunt 600c374 2026-11-03 -->
+<!-- skill-templates: bug-hunt ff2aa86 2026-11-14 -->

@@ -175,7 +175,7 @@ Report verified merged PRs and exact blockers from the ledger. For ordinary deve
 | #123 | feat: add feature | Merged |
 | #456 | fix: resolve crash | Skipped (conflict) |
 
-**Version:** v1.2.3 → v1.2.4
+**Version:** unchanged — version bumps land via their own PR; report `vX → vY` only when the merged PR is that bump
 **Build:** typecheck + lint + test + build passed on main
 ```
 
@@ -201,4 +201,4 @@ Report verified merged PRs and exact blockers from the ledger. For ordinary deve
 7. **No attribution** — Zero Attribution Policy applies to all commits
 8. **Never publish to npm from this command** — `npm publish` requires OTP and is a deliberate manual step run by the user after a version bump PR lands
 
-<!-- skill-templates: merge 37866a5 2026-11-03 -->
+<!-- skill-templates: merge 2ea3022 2026-11-14 -->

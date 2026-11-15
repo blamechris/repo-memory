@@ -147,7 +147,7 @@ EOF
 done
 ```
 
-Label set for each sub-issue:
+Build each sub-issue's label set and verify it (the next two blocks) **before** running the creation loop above, so `--label` only ever carries labels that exist:
 
 ```bash
 # Repo uses "enhancement" + a complexity:low|medium|high label.
@@ -161,11 +161,22 @@ for extra in "${EXTRA_LABELS[@]}"; do
 done
 ```
 
-**Verify labels exist** before applying them. Skip any that don't exist in the repo rather than failing:
+**Verify labels exist** before applying them. Skip any that don't exist in the repo rather than failing. List the labels once, with `--limit 500`: `gh label list` returns only 30 by default, oldest first, so without it every label past the 30th reads as missing and is dropped from every sub-issue (#365). Match names case-insensitively, as GitHub does:
 
 ```bash
-EXISTING_LABELS=$(gh label list --json name -q '.[].name')
-# Filter SUB_LABELS to only those in EXISTING_LABELS
+# A failed listing stops here: reading it as "no labels exist" would file every sub-issue unlabeled.
+REPO_LABELS=$(gh label list --limit 500 --json name -q '.[].name') \
+  || { echo "REFUSE: could not list labels" >&2; exit 1; }
+KEPT=""
+while IFS= read -r LABEL; do
+  [ -n "$LABEL" ] || continue
+  if grep -qixF -- "$LABEL" <<< "$REPO_LABELS"; then
+    KEPT="${KEPT:+$KEPT,}$LABEL"
+  else
+    echo "Warning: '${LABEL}' label not found; creating sub-issues without it" >&2
+  fi
+done <<< "$(printf '%s\n' "$SUB_LABELS" | tr ',' '\n')"
+SUB_LABELS="$KEPT"
 ```
 
 ### 6. Comment on Parent and Cross-Link
@@ -186,7 +197,11 @@ EOF
 Optionally apply a `decomposed` label to the parent if the repo uses one:
 
 ```bash
-if gh label list --json name -q '.[].name' | grep -q '^decomposed$'; then
+# List with --limit 500 (30 by default, oldest first, so a recent label reads as missing) and match case-insensitively (#365).
+# A failed listing skips the marker with a warning; it is never read as "no such label" silently.
+PARENT_LABELS=$(gh label list --limit 500 --json name -q '.[].name') \
+  || { echo "Warning: could not list labels; not applying the decomposed marker to #${PARENT_NUM}" >&2; PARENT_LABELS=""; }
+if grep -qixF -- decomposed <<< "$PARENT_LABELS"; then
   gh issue edit "$PARENT_NUM" --add-label "decomposed"
 fi
 ```
@@ -230,4 +245,4 @@ Next: `/autonomous-dev-flow #${SUB_1} #${SUB_2} #${SUB_3}` to implement them, or
 - The parent already has a "Decomposed into" comment → use the existing sub-issues unless they're wrong.
 - The work spans multiple repos → that's a coordination problem, not a decomposition problem. Open issues in each repo separately.
 
-<!-- skill-templates: decompose-issue 699a5ca 2026-11-03 -->
+<!-- skill-templates: decompose-issue ff2aa86 2026-11-14 -->
