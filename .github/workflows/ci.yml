@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -58,7 +58,7 @@ jobs:
       # source build that then crashes on VS detection (#189). 22 is active
       # LTS and gets the prebuilt, so the install needs no compiler.
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 22.x
           cache: npm
